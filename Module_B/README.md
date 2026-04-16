@@ -11,21 +11,45 @@
 - Performance benchmark script and EXPLAIN plan capture in `scripts/benchmark_indexing.py`.
 
 ## Run locally
+
+### ⚠️ Sharding Port Configuration (IMPORTANT - Confirmed with TA)
+
+For Assignment 4 (Sharding), the shards must run on:
+- **Shard 0: Port 8081**
+- **Shard 1: Port 8082**
+- **Shard 2: Port 8083**
+
+❌ **DO NOT use port 8080** - confirmed not working with TA
+
+See `SHARD_PORTS_SETUP.md` and `GROUP_ANNOUNCEMENT.md` for complete details.
+
+### Running Individual Shards
+
+**Shard 0 (Port 8081):**
+```bash
+pip install -r requirements.txt
+$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5432/module_b"
+python -m uvicorn app.main:app --reload --port 8081 --app-dir Module_B
+```
+
+**Shard 1 (Port 8082) - In another terminal:**
+```bash
+$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5433/module_b"
+python -m uvicorn app.main:app --reload --port 8082 --app-dir Module_B
+```
+
+**Shard 2 (Port 8083) - In another terminal:**
+```bash
+$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5434/module_b"
+python -m uvicorn app.main:app --reload --port 8083 --app-dir Module_B
+```
+
+### Previous Run Configuration (for reference)
+
 ```bash
 pip install -r requirements.txt
 $env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5432/module_b"
 python -m uvicorn app.main:app --reload --port 8001 --app-dir Module_B
-```
-
-If you run from inside `Module_B`, you can use:
-```bash
-$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5432/module_b"
-python -m uvicorn app.main:app --reload --port 8001
-```
-
-For Command Prompt (`cmd.exe`), use:
-```bash
-set MODULE_B_DB_DSN=postgresql://postgres:postgres@localhost:5432/module_b
 ```
 
 ### PostgreSQL notes

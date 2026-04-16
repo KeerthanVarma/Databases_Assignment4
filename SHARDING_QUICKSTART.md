@@ -52,17 +52,35 @@
 
 ---
 
+## 🔗 Shard Port Configuration
+
+> **⚠️ IMPORTANT (Confirmed with TA - April 17, 2026)**
+> - Shard 0 runs on port **8081**
+> - Shard 1 runs on port **8082**
+> - Shard 2 runs on port **8083**
+> - **Port 8080 does NOT work**
+
+See `SHARD_PORTS_SETUP.md` for complete configuration details.
+
+---
+
 ## How to Use
 
 ### Option 1: Initialize Sharding Tables
 
 ```bash
-# 1. Start the application
+# 1. Start the application on Shard 0 (Port 8081)
 cd Module_B
-python -m uvicorn app.main:app --reload
+python -m uvicorn app.main:app --host localhost --port 8081 --reload
 
-# 2. In another terminal, call the initialization endpoint
-curl -X POST http://localhost:8000/admin/sharding/initialize \
+# 2. In another terminal (Shard 1 - Port 8082)
+python -m uvicorn app.main:app --host localhost --port 8082 --reload
+
+# 3. In another terminal (Shard 2 - Port 8083)
+python -m uvicorn app.main:app --host localhost --port 8083 --reload
+
+# 4. Initialize one shard
+curl -X POST http://localhost:8081/admin/sharding/initialize \
   -H "Authorization: Bearer your_token" \
   -H "Cookie: session_token=your_session"
 ```
@@ -86,13 +104,20 @@ python -c "from app.db import migrate_data_to_shards; migrate_data_to_shards()"
 
 ## Testing the Sharding System
 
-### 1. Check Sharding Status
+### 1. Check Sharding Status on All Shards
 
 ```bash
-curl http://localhost:8000/admin/sharding/status
+# Shard 0 (Port 8081)
+curl http://localhost:8081/admin/sharding/status
+
+# Shard 1 (Port 8082)
+curl http://localhost:8082/admin/sharding/status
+
+# Shard 2 (Port 8083)
+curl http://localhost:8083/admin/sharding/status
 ```
 
-**Response:**
+**Response (same for all shards):**
 ```json
 {
   "sharding_enabled": true,
@@ -106,7 +131,14 @@ curl http://localhost:8000/admin/sharding/status
 ### 2. Demonstrate Query Routing
 
 ```bash
-curl "http://localhost:8000/admin/sharding/routing-demo?user_id=5&table=users"
+# Test user_id = 5 → Routes to Shard 2 (Port 8083)
+curl "http://localhost:8083/admin/sharding/routing-demo?user_id=5&table=users"
+
+# Test user_id = 10 → Routes to Shard 1 (Port 8082)
+curl "http://localhost:8082/admin/sharding/routing-demo?user_id=10&table=users"
+
+# Test user_id = 15 → Routes to Shard 0 (Port 8081)
+curl "http://localhost:8081/admin/sharding/routing-demo?user_id=15&table=users"
 ```
 
 **Response:**
@@ -124,7 +156,14 @@ curl "http://localhost:8000/admin/sharding/routing-demo?user_id=5&table=users"
 ### 3. View Data Distribution
 
 ```bash
-curl http://localhost:8000/admin/sharding/distribution
+# Check distribution on Shard 0
+curl http://localhost:8081/admin/sharding/distribution
+
+# Check distribution on Shard 1
+curl http://localhost:8082/admin/sharding/distribution
+
+# Check distribution on Shard 2
+curl http://localhost:8083/admin/sharding/distribution
 ```
 
 **Response:**
@@ -145,7 +184,14 @@ curl http://localhost:8000/admin/sharding/distribution
 ### 4. Multi-User Routing Demo
 
 ```bash
-curl -X POST http://localhost:8000/admin/sharding/demonstrate
+# Run demo on Shard 0 (Port 8081)
+curl -X POST http://localhost:8081/admin/sharding/demonstrate
+
+# Run demo on Shard 1 (Port 8082)
+curl -X POST http://localhost:8082/admin/sharding/demonstrate
+
+# Run demo on Shard 2 (Port 8083)
+curl -X POST http://localhost:8083/admin/sharding/demonstrate
 ```
 
 **Response:**
