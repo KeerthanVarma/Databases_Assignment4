@@ -12,57 +12,33 @@
 
 ## Run locally
 
-### ⚠️ Sharding Port Configuration (IMPORTANT - Confirmed with TA)
+### MySQL backend startup (Windows PowerShell)
 
-For Assignment 4 (Sharding), the shards must run on:
-- **Shard 0: Port 8081**
-- **Shard 1: Port 8082**
-- **Shard 2: Port 8083**
-
-❌ **DO NOT use port 8080** - confirmed not working with TA
-
-See `SHARD_PORTS_SETUP.md` and `GROUP_ANNOUNCEMENT.md` for complete details.
-
-### Running Individual Shards
-
-**Shard 0 (Port 8081):**
-```bash
+```powershell
 pip install -r requirements.txt
-$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5432/module_b"
-python -m uvicorn app.main:app --reload --port 8081 --app-dir Module_B
+$env:MODULE_B_DB_HOST="localhost"
+$env:MODULE_B_DB_PORT="3306"
+$env:MODULE_B_DB_USER="root"
+$env:MODULE_B_DB_PASSWORD=""
+$env:MODULE_B_DB_NAME="module_b"
+python start_backend.py
 ```
 
-**Shard 1 (Port 8082) - In another terminal:**
-```bash
-$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5433/module_b"
-python -m uvicorn app.main:app --reload --port 8082 --app-dir Module_B
+`start_backend.py` will initialize sharding and run FastAPI on port `8000` by default.
+To use a different port:
+
+```powershell
+$env:MODULE_B_PORT="8001"
+python start_backend.py
 ```
 
-**Shard 2 (Port 8083) - In another terminal:**
-```bash
-$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5434/module_b"
-python -m uvicorn app.main:app --reload --port 8083 --app-dir Module_B
-```
-
-### Previous Run Configuration (for reference)
-
-```bash
-pip install -r requirements.txt
-$env:MODULE_B_DB_DSN="postgresql://postgres:postgres@localhost:5432/module_b"
-python -m uvicorn app.main:app --reload --port 8001 --app-dir Module_B
-```
-
-### PostgreSQL notes
-- Module B now uses PostgreSQL as its runtime database.
-- Create the database once before first run, for example:
-```bash
-psql -U postgres -c "CREATE DATABASE module_b;"
-```
-- Override credentials/host by setting `MODULE_B_DB_DSN`.
+### Remote shard notes
+- Shard routing for distributed data uses the configured shard manager (ports `3307`, `3308`, `3309`).
+- If shard hosts are unreachable, central MySQL-backed APIs still initialize where applicable and warnings are logged.
 
 ## Web UI
-- Open `http://127.0.0.1:8001/` for the local frontend (login, portfolio, company/job CRUD views).
-- Swagger remains available at `http://127.0.0.1:8001/docs`.
+- Open `http://127.0.0.1:8000/` for the local frontend (login, portfolio, company/job CRUD views).
+- Swagger remains available at `http://127.0.0.1:8000/docs`.
 
 ## Seed credentials
 - Admin-equivalent (`CDS Manager`): `admin` / `admin123`

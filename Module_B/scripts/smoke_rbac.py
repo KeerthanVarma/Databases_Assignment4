@@ -1,7 +1,12 @@
 import os
 from fastapi.testclient import TestClient
 
-os.environ.setdefault("MODULE_B_DB_DSN", "postgresql://postgres:Dinesh%40123@localhost:5432/module_b")
+# MySQL defaults for local smoke testing.
+os.environ.setdefault("MODULE_B_DB_HOST", "localhost")
+os.environ.setdefault("MODULE_B_DB_PORT", "3306")
+os.environ.setdefault("MODULE_B_DB_USER", "root")
+os.environ.setdefault("MODULE_B_DB_PASSWORD", "")
+os.environ.setdefault("MODULE_B_DB_NAME", "module_b")
 
 from Module_B.app.main import app
 

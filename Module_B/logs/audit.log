@@ -528,3 +528,10 @@
 2026-04-05T05:33:06.076049+00:00 actor=1 action=INSERT table=applications record=504 path=/applications status=success
 2026-04-05T05:33:06.084052+00:00 actor=1 action=INSERT table=applications record=505 path=/applications status=success
 2026-04-05T05:33:06.122052+00:00 actor=1 action=INSERT table=applications record=506 path=/applications status=success
+2026-04-17T20:58:11.763554+00:00 actor=100 action=INSERT table=users/students record=230031 path=/members status=success
+2026-04-17T20:59:55.215805+00:00 actor=100 action=INSERT table=users/students record=230032 path=/members status=success
+2026-04-17T21:02:57.821099+00:00 actor=100 action=INSERT table=users/students record=230033 path=/members status=success
+2026-04-17T21:05:53.526952+00:00 actor=100 action=INSERT table=users/recruiters record=1004 path=/recruiters status=success
+2026-04-17T21:05:53.708528+00:00 actor=100 action=DELETE table=users/recruiters record=1004 path=/recruiters/1004 status=success
+2026-04-17T21:09:13.364944+00:00 actor=100 action=INSERT table=users/students record=230034 path=/members status=success
+2026-04-17T22:40:59.701883+00:00 actor=100 action=INSERT table=users/students record=230035 path=/members status=success

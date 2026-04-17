@@ -540,116 +540,340 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- =====================================================
--- PART 4: DATA MIGRATION (Must be run separately)
+-- PART 4: DATA MIGRATION
+-- Team: Machine_minds
+-- Strategy: Hash-based (user_id % 3)
 -- =====================================================
 
--- NOTE: Data migration queries below should be executed after table creation
--- Uncomment and run these queries to migrate existing data
-
-/*
--- Migrate Users to appropriate shards
+-- =====================================================
+-- SECTION 4A: MIGRATE USERS
+-- =====================================================
 INSERT INTO shard_0_users 
 SELECT user_id, username, email, password_hash, role_id, is_verified, created_at, full_name, contact_number, status, 0
-FROM Users WHERE user_id % 3 = 0;
+FROM users WHERE user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_users 
 SELECT user_id, username, email, password_hash, role_id, is_verified, created_at, full_name, contact_number, status, 1
-FROM Users WHERE user_id % 3 = 1;
+FROM users WHERE user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_users 
 SELECT user_id, username, email, password_hash, role_id, is_verified, created_at, full_name, contact_number, status, 2
-FROM Users WHERE user_id % 3 = 2;
+FROM users WHERE user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate User_Logs
+-- =====================================================
+-- SECTION 4B: MIGRATE USER_LOGS
+-- =====================================================
 INSERT INTO shard_0_user_logs
 SELECT log_id, user_id, action, ip_address, start_time, end_time, device_info, 0
-FROM User_Logs WHERE user_id % 3 = 0;
+FROM user_logs WHERE user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_user_logs
 SELECT log_id, user_id, action, ip_address, start_time, end_time, device_info, 1
-FROM User_Logs WHERE user_id % 3 = 1;
+FROM user_logs WHERE user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_user_logs
 SELECT log_id, user_id, action, ip_address, start_time, end_time, device_info, 2
-FROM User_Logs WHERE user_id % 3 = 2;
+FROM user_logs WHERE user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate Students
+-- =====================================================
+-- SECTION 4C: MIGRATE STUDENTS
+-- =====================================================
 INSERT INTO shard_0_students
 SELECT student_id, user_id, latest_cpi, program, discipline, graduating_year, active_backlogs, gender, 
        tenth_percent, tenth_passout_year, twelfth_percent, twelfth_passout_year, 0
-FROM Students WHERE user_id % 3 = 0;
+FROM students WHERE user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_students
 SELECT student_id, user_id, latest_cpi, program, discipline, graduating_year, active_backlogs, gender, 
        tenth_percent, tenth_passout_year, twelfth_percent, twelfth_passout_year, 1
-FROM Students WHERE user_id % 3 = 1;
+FROM students WHERE user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_students
 SELECT student_id, user_id, latest_cpi, program, discipline, graduating_year, active_backlogs, gender, 
        tenth_percent, tenth_passout_year, twelfth_percent, twelfth_passout_year, 2
-FROM Students WHERE user_id % 3 = 2;
+FROM students WHERE user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate Alumni_User
+-- =====================================================
+-- SECTION 4D: MIGRATE ALUMNI_USER
+-- =====================================================
 INSERT INTO shard_0_alumni_user
 SELECT alumni_id, user_id, grad_year, current_company, placement_history, designation, 0
-FROM Alumni_User WHERE user_id % 3 = 0;
+FROM alumni_user WHERE user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_alumni_user
 SELECT alumni_id, user_id, grad_year, current_company, placement_history, designation, 1
-FROM Alumni_User WHERE user_id % 3 = 1;
+FROM alumni_user WHERE user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_alumni_user
 SELECT alumni_id, user_id, grad_year, current_company, placement_history, designation, 2
-FROM Alumni_User WHERE user_id % 3 = 2;
+FROM alumni_user WHERE user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate Companies
+-- =====================================================
+-- SECTION 4E: MIGRATE COMPANIES
+-- =====================================================
 INSERT INTO shard_0_companies
 SELECT company_id, user_id, company_name, industry_sector, type_of_organization, hiring_history, company_description, website_url, 0
-FROM Companies WHERE user_id % 3 = 0;
+FROM companies WHERE user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_companies
 SELECT company_id, user_id, company_name, industry_sector, type_of_organization, hiring_history, company_description, website_url, 1
-FROM Companies WHERE user_id % 3 = 1;
+FROM companies WHERE user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_companies
 SELECT company_id, user_id, company_name, industry_sector, type_of_organization, hiring_history, company_description, website_url, 2
-FROM Companies WHERE user_id % 3 = 2;
+FROM companies WHERE user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate Resumes (need to find user_id from student_id)
+-- =====================================================
+-- SECTION 4F: MIGRATE RESUMES
+-- =====================================================
 INSERT INTO shard_0_resumes
 SELECT r.resume_id, r.student_id, s.user_id, r.resume_label, r.file_url, r.ats_score, r.is_verified, r.uploaded_at, 0
-FROM Resumes r
-JOIN Students s ON r.student_id = s.student_id
-WHERE s.user_id % 3 = 0;
+FROM resumes r
+JOIN students s ON r.student_id = s.student_id
+WHERE s.user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_resumes
 SELECT r.resume_id, r.student_id, s.user_id, r.resume_label, r.file_url, r.ats_score, r.is_verified, r.uploaded_at, 1
-FROM Resumes r
-JOIN Students s ON r.student_id = s.student_id
-WHERE s.user_id % 3 = 1;
+FROM resumes r
+JOIN students s ON r.student_id = s.student_id
+WHERE s.user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_resumes
 SELECT r.resume_id, r.student_id, s.user_id, r.resume_label, r.file_url, r.ats_score, r.is_verified, r.uploaded_at, 2
-FROM Resumes r
-JOIN Students s ON r.student_id = s.student_id
-WHERE s.user_id % 3 = 2;
+FROM resumes r
+JOIN students s ON r.student_id = s.student_id
+WHERE s.user_id % 3 = 2
+ON CONFLICT DO NOTHING;
 
--- Migrate Applications
+-- =====================================================
+-- SECTION 4G: MIGRATE APPLICATIONS
+-- =====================================================
 INSERT INTO shard_0_applications
 SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 0
-FROM Applications a
-JOIN Students s ON a.student_id = s.student_id
-WHERE s.user_id % 3 = 0;
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 0
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_1_applications
 SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 1
-FROM Applications a
-JOIN Students s ON a.student_id = s.student_id
-WHERE s.user_id % 3 = 1;
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 1
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shard_2_applications
 SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 2
-FROM Applications a
-JOIN Students s ON a.student_id = s.student_id
-WHERE s.user_id % 3 = 2;
-*/
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 2
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- PART 5: VERIFICATION QUERIES
+-- =====================================================
+
+-- Verify shard table existence and data count
+SELECT 'VERIFICATION REPORT - Machine_minds Sharding' as report_title;
+SELECT '================================================' as separator;
+
+-- Count original data
+SELECT 'ORIGINAL DATA COUNTS' as section;
+SELECT COUNT(*) as total_users FROM users;
+SELECT COUNT(*) as total_students FROM students;
+SELECT COUNT(*) as total_alumni FROM alumni_user;
+SELECT COUNT(*) as total_companies FROM companies;
+SELECT COUNT(*) as total_user_logs FROM user_logs;
+SELECT COUNT(*) as total_resumes FROM resumes;
+SELECT COUNT(*) as total_applications FROM applications;
+
+-- Verify sharded data
+SELECT 'SHARDED DATA DISTRIBUTION' as section;
+SELECT 
+    'shard_0_users' as shard_table, 
+    COUNT(*) as record_count 
+FROM shard_0_users
+UNION ALL
+SELECT 'shard_1_users', COUNT(*) FROM shard_1_users
+UNION ALL
+SELECT 'shard_2_users', COUNT(*) FROM shard_2_users
+UNION ALL
+SELECT 'shard_0_students', COUNT(*) FROM shard_0_students
+UNION ALL
+SELECT 'shard_1_students', COUNT(*) FROM shard_1_students
+UNION ALL
+SELECT 'shard_2_students', COUNT(*) FROM shard_2_students
+UNION ALL
+SELECT 'shard_0_alumni_user', COUNT(*) FROM shard_0_alumni_user
+UNION ALL
+SELECT 'shard_1_alumni_user', COUNT(*) FROM shard_1_alumni_user
+UNION ALL
+SELECT 'shard_2_alumni_user', COUNT(*) FROM shard_2_alumni_user
+UNION ALL
+SELECT 'shard_0_companies', COUNT(*) FROM shard_0_companies
+UNION ALL
+SELECT 'shard_1_companies', COUNT(*) FROM shard_1_companies
+UNION ALL
+SELECT 'shard_2_companies', COUNT(*) FROM shard_2_companies
+UNION ALL
+SELECT 'shard_0_user_logs', COUNT(*) FROM shard_0_user_logs
+UNION ALL
+SELECT 'shard_1_user_logs', COUNT(*) FROM shard_1_user_logs
+UNION ALL
+SELECT 'shard_2_user_logs', COUNT(*) FROM shard_2_user_logs
+UNION ALL
+SELECT 'shard_0_resumes', COUNT(*) FROM shard_0_resumes
+UNION ALL
+SELECT 'shard_1_resumes', COUNT(*) FROM shard_1_resumes
+UNION ALL
+SELECT 'shard_2_resumes', COUNT(*) FROM shard_2_resumes
+UNION ALL
+SELECT 'shard_0_applications', COUNT(*) FROM shard_0_applications
+UNION ALL
+SELECT 'shard_1_applications', COUNT(*) FROM shard_1_applications
+UNION ALL
+SELECT 'shard_2_applications', COUNT(*) FROM shard_2_applications
+ORDER BY shard_table;
+
+-- Summary statistics
+SELECT 'DATA INTEGRITY CHECKS' as section;
+SELECT 
+    (SELECT COUNT(*) FROM shard_0_users) +
+    (SELECT COUNT(*) FROM shard_1_users) +
+    (SELECT COUNT(*) FROM shard_2_users) as total_sharded_users,
+    (SELECT COUNT(*) FROM users) as original_users,
+    CASE 
+        WHEN (SELECT COUNT(*) FROM shard_0_users) + (SELECT COUNT(*) FROM shard_1_users) + (SELECT COUNT(*) FROM shard_2_users) = 
+             (SELECT COUNT(*) FROM users)
+        THEN 'VERIFIED - No data loss'
+        ELSE 'WARNING - Data mismatch'
+    END as verification_status;ERE s.user_id % 3 = 1
+ON CONFLICT DO NOTHING;
+
+INSERT INTO shard_2_resumes
+SELECT r.resume_id, r.student_id, s.user_id, r.resume_label, r.file_url, r.ats_score, r.is_verified, r.uploaded_at, 2
+FROM resumes r
+JOIN students s ON r.student_id = s.student_id
+WHERE s.user_id % 3 = 2
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- SECTION 4G: MIGRATE APPLICATIONS
+-- =====================================================
+INSERT INTO shard_0_applications
+SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 0
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 0
+ON CONFLICT DO NOTHING;
+
+INSERT INTO shard_1_applications
+SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 1
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 1
+ON CONFLICT DO NOTHING;
+
+INSERT INTO shard_2_applications
+SELECT a.application_id, a.job_id, a.student_id, s.user_id, a.applied_at, a.status, 2
+FROM applications a
+JOIN students s ON a.student_id = s.student_id
+WHERE s.user_id % 3 = 2
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- PART 5: VERIFICATION QUERIES
+-- =====================================================
+
+-- Verify shard table existence and data count
+SELECT 'VERIFICATION REPORT - Machine_minds Sharding' as report_title;
+SELECT '================================================' as separator;
+
+-- Count original data
+SELECT 'ORIGINAL DATA COUNTS' as section;
+SELECT COUNT(*) as total_users FROM users;
+SELECT COUNT(*) as total_students FROM students;
+SELECT COUNT(*) as total_alumni FROM alumni_user;
+SELECT COUNT(*) as total_companies FROM companies;
+SELECT COUNT(*) as total_user_logs FROM user_logs;
+SELECT COUNT(*) as total_resumes FROM resumes;
+SELECT COUNT(*) as total_applications FROM applications;
+
+-- Verify sharded data
+SELECT 'SHARDED DATA DISTRIBUTION' as section;
+SELECT 
+    'shard_0_users' as shard_table, 
+    COUNT(*) as record_count 
+FROM shard_0_users
+UNION ALL
+SELECT 'shard_1_users', COUNT(*) FROM shard_1_users
+UNION ALL
+SELECT 'shard_2_users', COUNT(*) FROM shard_2_users
+UNION ALL
+SELECT 'shard_0_students', COUNT(*) FROM shard_0_students
+UNION ALL
+SELECT 'shard_1_students', COUNT(*) FROM shard_1_students
+UNION ALL
+SELECT 'shard_2_students', COUNT(*) FROM shard_2_students
+UNION ALL
+SELECT 'shard_0_alumni_user', COUNT(*) FROM shard_0_alumni_user
+UNION ALL
+SELECT 'shard_1_alumni_user', COUNT(*) FROM shard_1_alumni_user
+UNION ALL
+SELECT 'shard_2_alumni_user', COUNT(*) FROM shard_2_alumni_user
+UNION ALL
+SELECT 'shard_0_companies', COUNT(*) FROM shard_0_companies
+UNION ALL
+SELECT 'shard_1_companies', COUNT(*) FROM shard_1_companies
+UNION ALL
+SELECT 'shard_2_companies', COUNT(*) FROM shard_2_companies
+UNION ALL
+SELECT 'shard_0_user_logs', COUNT(*) FROM shard_0_user_logs
+UNION ALL
+SELECT 'shard_1_user_logs', COUNT(*) FROM shard_1_user_logs
+UNION ALL
+SELECT 'shard_2_user_logs', COUNT(*) FROM shard_2_user_logs
+UNION ALL
+SELECT 'shard_0_resumes', COUNT(*) FROM shard_0_resumes
+UNION ALL
+SELECT 'shard_1_resumes', COUNT(*) FROM shard_1_resumes
+UNION ALL
+SELECT 'shard_2_resumes', COUNT(*) FROM shard_2_resumes
+UNION ALL
+SELECT 'shard_0_applications', COUNT(*) FROM shard_0_applications
+UNION ALL
+SELECT 'shard_1_applications', COUNT(*) FROM shard_1_applications
+UNION ALL
+SELECT 'shard_2_applications', COUNT(*) FROM shard_2_applications
+ORDER BY shard_table;
+
+-- Summary statistics
+SELECT 'DATA INTEGRITY CHECKS' as section;
+SELECT 
+    (SELECT COUNT(*) FROM shard_0_users) +
+    (SELECT COUNT(*) FROM shard_1_users) +
+    (SELECT COUNT(*) FROM shard_2_users) as total_sharded_users,
+    (SELECT COUNT(*) FROM users) as original_users,
+    CASE 
+        WHEN (SELECT COUNT(*) FROM shard_0_users) + (SELECT COUNT(*) FROM shard_1_users) + (SELECT COUNT(*) FROM shard_2_users) = 
+             (SELECT COUNT(*) FROM users)
+        THEN 'VERIFIED - No data loss'
+        ELSE 'WARNING - Data mismatch'
+    END as verification_status;

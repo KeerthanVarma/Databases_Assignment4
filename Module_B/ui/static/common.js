@@ -60,7 +60,11 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    // Use backend URL for API calls
+    const backendUrl = window.BACKEND_URL || "http://localhost:8000";
+    const fullUrl = path.startsWith("http") ? path : backendUrl + path;
+    
+    const response = await fetch(fullUrl, {
       ...options,
       headers: {
         "Content-Type": "application/json",

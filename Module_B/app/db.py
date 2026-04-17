@@ -4,9 +4,8 @@ import sys
 from pathlib import Path
 from typing import Iterable, Optional, List, Dict, Any
 import time
-import psycopg
-from psycopg import sql
-from psycopg.rows import dict_row
+import mysql.connector
+from mysql.connector import pooling
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 
@@ -23,9 +22,32 @@ try:
 except ImportError as e:
     print(f"[WARNING] Module A integration failed: {e}")
     ACID_INTEGRATION_ENABLED = False
-DB_DSN = os.getenv("MODULE_B_DB_DSN", "postgresql://postgres:postgres@localhost:5432/module_b")
+
+# MySQL connection configuration
+DB_HOST = os.getenv("MODULE_B_DB_HOST", "localhost")
+DB_USER = os.getenv("MODULE_B_DB_USER", "root")
+DB_PASSWORD = os.getenv("MODULE_B_DB_PASSWORD", "")
+DB_NAME = os.getenv("MODULE_B_DB_NAME", "module_b")
+DB_PORT = int(os.getenv("MODULE_B_DB_PORT", "3306"))
+
 SCHEMA_PATH = BASE_DIR / "sql" / "init_schema.sql"
 INDEX_PATH = BASE_DIR / "sql" / "indexes.sql"
+
+# MySQL connection pool
+try:
+    db_pool = pooling.MySQLConnectionPool(
+        pool_name="module_b_pool",
+        pool_size=5,
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        port=DB_PORT,
+        autocommit=False
+    )
+except Exception as e:
+    print(f"[ERROR] Failed to create MySQL connection pool: {e}")
+    db_pool = None
 
 # Initialize ACID Transaction Coordinator (if available)
 ACID_COORDINATOR = None
@@ -75,45 +97,74 @@ INSERT_ID_COLUMNS = {
 }
 
 
-def _to_postgres_placeholders(query: str) -> str:
-    # Existing app queries use sqlite-style placeholders; convert them centrally.
-    return query.replace("?", "%s")
-
-
 def _normalize_query(query: str) -> str:
-    q = _to_postgres_placeholders(query)
-    if re.search(r"(?i)INSERT\s+OR\s+IGNORE\s+INTO", q):
-        q = re.sub(r"(?i)INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", q)
-        if "ON CONFLICT" not in q.upper():
-            q = q.rstrip()
-            if q.endswith(";"):
-                q = q[:-1].rstrip()
-            q += " ON CONFLICT DO NOTHING"
+    """Convert SQLite/PostgreSQL syntax to MySQL syntax"""
+    q = query.replace("?", "%s")
+    
+    # Handle INSERT OR IGNORE → INSERT IGNORE
+    if re.search(r"(?i)INSERT\s+OR\s+IGNORE", q):
+        q = re.sub(r"(?i)INSERT\s+OR\s+IGNORE", "INSERT IGNORE", q)
+    
+    # Remove ON CONFLICT clauses (not needed with INSERT IGNORE or ON DUPLICATE KEY UPDATE)
+    q = re.sub(r"(?i)\s+ON\s+CONFLICT\s+.*?DO\s+NOTHING", "", q)
+
+    # Quote reserved table name for MySQL.
+    q = re.sub(r"(?i)\b(FROM|JOIN|INTO|UPDATE|TABLE|REFERENCES)\s+`?groups`?\b", r"\1 `groups`", q)
+    
     return q
 
 
 def _prepare_schema_sql(schema_sql: str) -> str:
-    sql = re.sub(r"(?im)^\s*PRAGMA\s+foreign_keys\s*=\s*ON;\s*$", "", schema_sql)
-    sql = re.sub(r"(?i)INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", "SERIAL PRIMARY KEY", sql)
+    """Convert SQLite/PostgreSQL schema to MySQL syntax"""
+    sql = schema_sql
+    
+    # Remove PRAGMA statements
+    sql = re.sub(r"(?im)^\s*PRAGMA\s+.*?;\s*$", "", sql)
+    
+    # INTEGER PRIMARY KEY AUTOINCREMENT → INT AUTO_INCREMENT PRIMARY KEY
+    sql = re.sub(r"(?i)INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT", "INT AUTO_INCREMENT PRIMARY KEY", sql)
 
-    def convert_insert_or_ignore(match: re.Match) -> str:
-        stmt = match.group(0)
-        stmt = re.sub(r"(?i)INSERT\s+OR\s+IGNORE\s+INTO", "INSERT INTO", stmt)
-        stmt = stmt.rstrip()
-        if stmt.endswith(";"):
-            stmt = stmt[:-1].rstrip()
-        return stmt + " ON CONFLICT DO NOTHING;"
+    # MySQL does not allow UNIQUE/PK constraints directly on TEXT without a key length.
+    sql = re.sub(r"(?i)\bTEXT\s+UNIQUE\b", "VARCHAR(255) UNIQUE", sql)
+    sql = re.sub(r"(?i)\bTEXT\s+PRIMARY\s+KEY\b", "VARCHAR(255) PRIMARY KEY", sql)
 
-    sql = re.sub(r"(?is)INSERT\s+OR\s+IGNORE\s+INTO\s+.+?;", convert_insert_or_ignore, sql)
+    # SQLite often stores timestamps as TEXT; map timestamp defaults to DATETIME for MySQL.
+    sql = re.sub(
+        r"(?i)\bTEXT\s+NOT\s+NULL\s+DEFAULT\s+CURRENT_TIMESTAMP\b",
+        "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+        sql,
+    )
+    sql = re.sub(
+        r"(?i)\bTEXT\s+DEFAULT\s+CURRENT_TIMESTAMP\b",
+        "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        sql,
+    )
+
+    # MySQL defaults/checks/indexes are safer with VARCHAR than TEXT in this schema.
+    sql = re.sub(r"(?i)\bTEXT\b", "VARCHAR(255)", sql)
+
+    # Convert SQLite insert syntax used in seed data.
+    sql = re.sub(r"(?i)INSERT\s+OR\s+IGNORE", "INSERT IGNORE", sql)
+
+    # Quote reserved table name in schema DDL.
+    sql = re.sub(
+        r"(?i)\b(CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS|REFERENCES|INSERT\s+INTO|INSERT\s+IGNORE\s+INTO|UPDATE|FROM|JOIN)\s+`?groups`?\b",
+        r"\1 `groups`",
+        sql,
+    )
+    
     return sql
 
 
-def _connect() -> psycopg.Connection:
-    return psycopg.connect(DB_DSN, row_factory=dict_row)
+def _connect() -> mysql.connector.MySQLConnection:
+    """Get a connection from the pool"""
+    if db_pool is None:
+        raise Exception("Database pool not initialized")
+    return db_pool.get_connection()
 
 
-class PostgresCursor:
-    def __init__(self, cursor: psycopg.Cursor):
+class MySQLCursor:
+    def __init__(self, cursor: mysql.connector.cursor.MySQLCursor):
         self._cursor = cursor
         self._lastrowid = None
 
@@ -123,20 +174,34 @@ class PostgresCursor:
 
     @property
     def lastrowid(self):
-        return self._lastrowid
+        return self._cursor.lastrowid or self._lastrowid
 
     def set_lastrowid(self, value):
         self._lastrowid = value
 
     def fetchone(self):
-        return self._cursor.fetchone()
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        # Convert tuple to dict
+        if isinstance(row, tuple):
+            columns = [desc[0] for desc in self._cursor.description]
+            return dict(zip(columns, row))
+        return row
 
     def fetchall(self):
-        return self._cursor.fetchall()
+        rows = self._cursor.fetchall()
+        if not rows:
+            return []
+        # Convert tuples to dicts
+        if rows and isinstance(rows[0], tuple):
+            columns = [desc[0] for desc in self._cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+        return rows
 
 
-class PostgresConnection:
-    def __init__(self, conn: psycopg.Connection):
+class MySQLConnection:
+    def __init__(self, conn: mysql.connector.MySQLConnection):
         self._conn = conn
 
     def __enter__(self):
@@ -147,15 +212,18 @@ class PostgresConnection:
             self._conn.rollback()
         self._conn.close()
 
-    def execute(self, query: str, params: Iterable = ()): 
+    def execute(self, query: str, params: Iterable = ()):
         cur = self._conn.cursor()
         cur.execute(_normalize_query(query), tuple(params))
-        return PostgresCursor(cur)
+        return MySQLCursor(cur)
 
     def executemany(self, query: str, params_list: Iterable[Iterable]):
         cur = self._conn.cursor()
         cur.executemany(_normalize_query(query), params_list)
-        return PostgresCursor(cur)
+        return MySQLCursor(cur)
+
+    def cursor(self):
+        return self._conn.cursor()
 
     def commit(self):
         self._conn.commit()
@@ -164,155 +232,146 @@ class PostgresConnection:
         self._conn.rollback()
 
 
-def get_connection() -> PostgresConnection:
-    return PostgresConnection(_connect())
+def get_connection() -> MySQLConnection:
+    return MySQLConnection(_connect())
 
 
 def initialize_database(apply_indexes: bool = False):
-    schema_sql = _prepare_schema_sql(SCHEMA_PATH.read_text(encoding="utf-8"))
-    index_sql = INDEX_PATH.read_text(encoding="utf-8") if apply_indexes else ""
-    with _connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(schema_sql)
+    try:
+        schema_sql = _prepare_schema_sql(SCHEMA_PATH.read_text(encoding="utf-8"))
+        index_sql = INDEX_PATH.read_text(encoding="utf-8") if apply_indexes else ""
+        
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            # Enable foreign keys for MySQL
+            cursor.execute("SET FOREIGN_KEY_CHECKS=1")
+            
+            # Split and execute statements individually
+            for statement in schema_sql.split(";"):
+                statement = statement.strip()
+                if statement:
+                    cursor.execute(statement)
+            
             if apply_indexes and index_sql.strip():
-                cur.execute(index_sql)
-        _ensure_baseline_auth_data(conn)
-        _sync_identity_sequences(conn)
-        conn.commit()
+                for statement in index_sql.split(";"):
+                    statement = statement.strip()
+                    if statement:
+                        cursor.execute(statement)
+            
+            _ensure_baseline_auth_data(conn)
+            conn.commit()
+        
+        print("[DB] Database initialized successfully")
+    except Exception as e:
+        print(f"[ERROR] Database initialization failed: {e}")
+        raise
 
 
-def _sync_identity_sequences(conn: psycopg.Connection):
-    # Seed scripts insert explicit IDs; align serial sequences to avoid PK collisions.
-    with conn.cursor() as cur:
-        for table_name, id_column in INSERT_ID_COLUMNS.items():
-            statement = sql.SQL(
-                """
-                SELECT setval(
-                    pg_get_serial_sequence({table_lit}, {column_lit}),
-                    COALESCE((SELECT MAX({id_col}) FROM {table_ident}), 0) + 1,
-                    false
-                )
-                """
-            ).format(
-                table_lit=sql.Literal(table_name),
-                column_lit=sql.Literal(id_column),
-                id_col=sql.Identifier(id_column),
-                table_ident=sql.Identifier(table_name),
+def _ensure_baseline_auth_data(conn: MySQLConnection):
+    """Ensure baseline auth data exists"""
+    try:
+        cursor = conn.cursor()
+        
+        # Insert Recruiter role if it doesn't exist
+        cursor.execute("""
+            INSERT IGNORE INTO roles(role_id, role_name, description)
+            VALUES (2, 'Recruiter', 'External recruiter user')
+        """)
+        
+        # Insert CDS Manager role if it doesn't exist
+        cursor.execute("""
+            INSERT IGNORE INTO roles(role_id, role_name, description)
+            VALUES (4, 'CDS Manager', 'Head of Career Development and Placement Services')
+        """)
+        
+        # Insert admin user if it doesn't exist
+        cursor.execute("""
+            INSERT IGNORE INTO users(
+                user_id, username, email, password_hash, role_id, is_verified,
+                full_name, status, is_active
             )
-            cur.execute(statement)
-
-
-def _ensure_baseline_auth_data(conn: psycopg.Connection):
-    # Guarantees a known login path for UI even on partially seeded legacy DBs.
-    conn.execute(
-        """
-        INSERT INTO roles(role_id, role_name, description)
-        VALUES (4, 'CDS Manager', 'Head of Career Development and Placement Services')
-        ON CONFLICT (role_id) DO NOTHING
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO users(
-            user_id, username, email, password_hash, role_id, is_verified,
-            full_name, status, is_active
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (username) DO NOTHING
-        """,
-        (1000, "admin", "admin@local.dev", "admin123", 4, True, "System Admin", "ACTIVE", True),
-    )
-
-    # Keep seeded credentials consistent so all documented test users can log in.
-    credential_pairs = []
-
-    for n in range(1, 31):
-        credential_pairs.append((f"hash{n}", f"student{n}"))
-
-    for n in range(1, 11):
-        credential_pairs.append((f"hash{30 + n}", f"alumni{n}"))
-
-    for n in range(1, 16):
-        credential_pairs.append((f"hash{40 + n}", f"recruiter{n}"))
-
-    for n in range(1, 6):
-        credential_pairs.append((f"hash{55 + n}", f"cds{n}"))
-
-    credential_pairs.append(("hash61", "cdsmanager1"))
-    credential_pairs.append(("admin123", "admin"))
-
-    with conn.cursor() as cur:
-        cur.executemany(
-            "UPDATE users SET password_hash = %s, is_active = True, status = 'ACTIVE' WHERE username = %s",
-            credential_pairs,
-        )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (1000, "admin", "admin@local.dev", "admin123", 4, 1, "System Admin", "ACTIVE", 1))
+        
+        # Update test user credentials
+        credential_pairs = []
+        for n in range(1, 31):
+            credential_pairs.append((f"hash{n}", f"student{n}"))
+        for n in range(1, 11):
+            credential_pairs.append((f"hash{30 + n}", f"alumni{n}"))
+        for n in range(1, 16):
+            credential_pairs.append((f"hash{40 + n}", f"recruiter{n}"))
+        for n in range(1, 6):
+            credential_pairs.append((f"hash{55 + n}", f"cds{n}"))
+        credential_pairs.append(("hash61", "cdsmanager1"))
+        credential_pairs.append(("admin123", "admin"))
+        
+        for password_hash, username in credential_pairs:
+            cursor.execute("""
+                UPDATE users SET password_hash = %s, is_active = 1, status = 'ACTIVE' 
+                WHERE username = %s
+            """, (password_hash, username))
+        
+        conn.commit()
+        print("[DB] Baseline auth data ensured")
+        
+    except Exception as e:
+        print(f"[WARNING] Error setting baseline auth data: {e}")
 
 def fetch_one(query: str, params: Iterable = ()) -> Optional[dict]:
-    with _connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(_normalize_query(query), tuple(params))
-            return cur.fetchone()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(_normalize_query(query), tuple(params))
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        if isinstance(row, tuple):
+            columns = [desc[0] for desc in cursor.description]
+            return dict(zip(columns, row))
+        return row
 
 
 def fetch_all(query: str, params: Iterable = ()):
-    with _connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(_normalize_query(query), tuple(params))
-            return cur.fetchall()
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(_normalize_query(query), tuple(params))
+        rows = cursor.fetchall()
+        if not rows:
+            return []
+        if rows and isinstance(rows[0], tuple):
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in rows]
+        return rows
 
 
 def execute(query: str, params: Iterable = ()) -> int:
+    """Execute a query and return the inserted ID for INSERT statements"""
     normalized = _normalize_query(query)
-    with _connect() as conn:
-        with conn.cursor() as cur:
-            is_insert = normalized.lstrip().upper().startswith("INSERT")
-            has_returning = "RETURNING" in normalized.upper()
-            if is_insert and "RETURNING" not in normalized.upper():
-                table_match = re.search(r"(?is)INSERT\s+INTO\s+([a-zA-Z_][\w]*)", normalized)
-                if table_match:
-                    table_name = table_match.group(1).lower()
-                    id_column = INSERT_ID_COLUMNS.get(table_name)
-                    if id_column:
-                        normalized = normalized.rstrip().rstrip(";") + f" RETURNING {id_column}"
-                        has_returning = True
-
-            cur.execute(normalized, tuple(params))
-            inserted_id = 0
-            if is_insert and has_returning:
-                row = cur.fetchone()
-                if row:
-                    inserted_id = int(next(iter(row.values())))
-            conn.commit()
-            return inserted_id
+    
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(normalized, tuple(params))
+        
+        # Get inserted ID for INSERT statements
+        inserted_id = cursor.lastrowid if cursor.lastrowid else 0
+        
+        conn.commit()
+        return inserted_id
 
 
 def execute_many(query: str, params_list: Iterable[Iterable]):
-    with _connect() as conn:
-        with conn.cursor() as cur:
-            cur.executemany(_normalize_query(query), params_list)
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.executemany(_normalize_query(query), params_list)
         conn.commit()
 
-
-# ============================================================================
-# ACID INTEGRATION FUNCTIONS (Module A Integration)
-# ============================================================================
 
 def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_name: str = None) -> Dict[str, Any]:
     """
     Execute multiple operations as a single ACID transaction with full logging and recovery support.
-    
-    Args:
-        operations: List of operations, each with 'query', 'params', and optional 'name'
-        transaction_name: Optional transaction identifier for logging
-        
-    Returns:
-        Dictionary with transaction results and metrics
     """
-    import time
-    
     if not ACID_INTEGRATION_ENABLED:
-        # Fallback to regular PostgreSQL transaction
-        return execute_postgres_transaction(operations)
+        return execute_mysql_transaction(operations)
     
     transaction_name = transaction_name or f"web_txn_{int(time.time())}"
     start_time = time.time()
@@ -320,9 +379,9 @@ def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_
     try:
         print(f"[ACID TRANSACTION] Starting: {transaction_name}")
         
-        with _connect() as conn:
-            # Start PostgreSQL transaction
-            conn.execute("BEGIN")
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("START TRANSACTION")
             
             results = []
             for i, op in enumerate(operations):
@@ -333,7 +392,6 @@ def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_
                 print(f"[ACID TRANSACTION] Executing {operation_name}: {query[:50]}...")
                 
                 try:
-                    cursor = conn.cursor()
                     cursor.execute(_normalize_query(query), tuple(params))
                     
                     result = {
@@ -346,10 +404,9 @@ def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_
                     
                 except Exception as e:
                     print(f"[ACID TRANSACTION] Operation {operation_name} failed: {e}")
-                    raise  # This will trigger rollback
+                    raise
             
-            # Commit all operations atomically
-            conn.commit()
+            cursor.execute("COMMIT")
             
             duration = time.time() - start_time
             print(f"[ACID TRANSACTION] SUCCESS: {transaction_name} completed in {duration:.3f}s")
@@ -363,13 +420,13 @@ def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_
             }
             
     except Exception as e:
-        # Rollback on any failure
         try:
-            with _connect() as conn:
-                conn.execute("ROLLBACK")
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("ROLLBACK")
             print(f"[ACID TRANSACTION] ROLLBACK: {transaction_name} - {e}")
         except:
-            pass  # Connection might be broken
+            pass
         
         duration = time.time() - start_time
         return {
@@ -381,22 +438,20 @@ def execute_with_acid_transaction(operations: List[Dict[str, Any]], transaction_
         }
 
 
-def execute_postgres_transaction(operations: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Fallback PostgreSQL-only transaction (no Module A integration)."""
-    import time
-    
+def execute_mysql_transaction(operations: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Fallback MySQL-only transaction (no Module A integration)."""
     start_time = time.time()
     
     try:
-        with _connect() as conn:
-            conn.execute("BEGIN")
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("START TRANSACTION")
             
             results = []
             for i, op in enumerate(operations):
                 query = op.get('query', '')
                 params = op.get('params', ())
                 
-                cursor = conn.cursor()
                 cursor.execute(_normalize_query(query), tuple(params))
                 
                 results.append({
@@ -404,7 +459,7 @@ def execute_postgres_transaction(operations: List[Dict[str, Any]]) -> Dict[str, 
                     'rowcount': cursor.rowcount
                 })
             
-            conn.commit()
+            cursor.execute("COMMIT")
             
             return {
                 'success': True,
@@ -415,8 +470,9 @@ def execute_postgres_transaction(operations: List[Dict[str, Any]]) -> Dict[str, 
             
     except Exception as e:
         try:
-            with _connect() as conn:
-                conn.execute("ROLLBACK")
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("ROLLBACK")
         except:
             pass
             
@@ -460,7 +516,10 @@ def get_acid_integration_status() -> Dict[str, Any]:
 # SHARDING SUPPORT (Assignment 4)
 # ============================================================================
 
-from .sharding_manager import ShardRouter, get_router, route_query, ShardingException
+try:
+    from .sharding_manager import ShardRouter, get_router, route_query, ShardingException
+except ImportError:
+    print("[WARNING] Sharding manager not available")
 
 # Sharding configuration
 SHARDING_ENABLED = os.getenv("MODULE_B_SHARDING_ENABLED", "1") == "1"
@@ -480,9 +539,12 @@ def initialize_sharding():
         sharding_sql_path = BASE_DIR / "sql" / "sharding_migration.sql"
         if sharding_sql_path.exists():
             sharding_sql = sharding_sql_path.read_text(encoding="utf-8")
-            with _connect() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(sharding_sql)
+            with get_connection() as conn:
+                cursor = conn.cursor()
+                for statement in sharding_sql.split(";"):
+                    statement = statement.strip()
+                    if statement:
+                        cursor.execute(statement)
                 conn.commit()
             print("[SHARDING] Sharding tables initialized successfully")
         else:
@@ -607,23 +669,100 @@ def fetch_all_sharded(table_name: str, query: str, params: Iterable = (), user_i
                 try:
                     shard_results = fetch_all(adapted_query, params)
                     results.extend(shard_results)
-                except Exception as e:
-                    print(f"[SHARDING WARNING] Shard {shard_id} unavailable: {e}")
-                    # Continue with other shards (partition tolerance)
+                except Exception as shard_error:
+                    print(f"[SHARDING] Error querying {shard_table}: {shard_error}")
+                    continue
             
             return results
         
-        # Single-shard lookup
-        shard_table = router.get_shard_table_name(table_name, user_id)
+        # For user_id based queries, get appropriate shard
+        shard_id = user_id % NUM_SHARDS
+        shard_table = f"shard_{shard_id}_{table_name}"
         adapted_query = query.replace(f"FROM {table_name}", f"FROM {shard_table}")
         
-        print(f"[SHARDING] Routing SELECT {table_name} (user_id={user_id}) to {shard_table}")
-        
         return fetch_all(adapted_query, params)
-        
-    except ShardingException as e:
-        print(f"[SHARDING ERROR] {e}")
-        raise
+    
+    except Exception as e:
+        print(f"[SHARDING] ERROR in shard_query: {e}")
+        return []
+
+
+def verify_sharding_status():
+    """
+    Verify that all shard tables have been created and contain data.
+    Returns: Dict with verification status for each table
+    """
+    verification_status = {}
+    
+    shard_tables = [
+        'users', 'students', 'alumni_user', 'companies',
+        'user_logs', 'resumes', 'applications'
+    ]
+    
+    try:
+        for table_name in shard_tables:
+            verification_status[table_name] = {}
+            
+            for shard_id in range(NUM_SHARDS):
+                shard_table = f"shard_{shard_id}_{table_name}"
+                
+                try:
+                    count = fetch_one(
+                        f"SELECT COUNT(*) as count FROM {shard_table}",
+                        {}
+                    )
+                    verification_status[table_name][shard_id] = count['count'] if count else 0
+                except Exception as e:
+                    print(f"[VERIFICATION] Error counting {shard_table}: {e}")
+                    verification_status[table_name][shard_id] = -1
+    
+    except Exception as e:
+        print(f"[VERIFICATION] Error during verification: {e}")
+    
+    return verification_status
+
+
+def get_sharding_distribution():
+    """
+    Get the distribution of data across shards.
+    Returns: Dict with count and percentage for each shard
+    """
+    distribution = {}
+    total_records = 0
+    
+    shard_tables = [
+        'users', 'students', 'alumni_user', 'companies',
+        'user_logs', 'resumes', 'applications'
+    ]
+    
+    try:
+        for table_name in shard_tables:
+            distribution[table_name] = {}
+            table_total = 0
+            
+            for shard_id in range(NUM_SHARDS):
+                shard_table = f"shard_{shard_id}_{table_name}"
+                
+                try:
+                    count = fetch_one(
+                        f"SELECT COUNT(*) as count FROM {shard_table}",
+                        {}
+                    )
+                    record_count = count['count'] if count else 0
+                    distribution[table_name][shard_id] = record_count
+                    table_total += record_count
+                except Exception as e:
+                    print(f"[DISTRIBUTION] Error counting {shard_table}: {e}")
+                    distribution[table_name][shard_id] = 0
+            
+            distribution[table_name]['total'] = table_total
+            total_records += table_total
+    
+    except Exception as e:
+        print(f"[DISTRIBUTION] Error getting distribution: {e}")
+    
+    distribution['GRAND_TOTAL'] = total_records
+    return distribution
 
 
 def migrate_data_to_shards():

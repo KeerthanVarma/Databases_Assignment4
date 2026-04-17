@@ -1,14 +1,29 @@
 """
 Sharding Manager Module
 Provides routing logic for hash-based sharding by user_id
-Strategy: user_id % num_shards (3 shards)
+
+Hash Function: xxHash64 (with CRC32 fallback)
+- xxHash64: Non-cryptographic, extremely fast (10GB/s), excellent avalanche properties
+- Used in Redis, Cassandra, and distributed systems for data partitioning
+- Provides uniform distribution with minimal collisions
+
+Partitioning Strategy: shard_id = hash(user_id) % num_shards
 """
 
 from typing import List, Dict, Any, Optional
 from enum import Enum
 import logging
+import zlib
 
 logger = logging.getLogger(__name__)
+
+# Try to use xxhash (faster, better distribution)
+try:
+    import xxhash
+    HASH_FUNCTION = "xxhash64"
+except ImportError:
+    xxhash = None
+    HASH_FUNCTION = "crc32"
 
 # Sharding configuration
 NUM_SHARDS = 3
@@ -64,7 +79,17 @@ class QueryType(Enum):
 class ShardRouter:
     """
     Routes queries to appropriate shards based on user_id
-    Implements hash-based partitioning: shard_id = user_id % num_shards
+    Implements hash-based partitioning: shard_id = hash(user_id) % num_shards
+    
+    Hash Function Details:
+    - Primary: xxHash64 (64-bit non-cryptographic hash)
+      * Speed: ~10GB/s, optimal for sharding
+      * Distribution: Uniform with excellent avalanche properties
+      * Used by: Redis, Cassandra, Apache Kafka, RocksDB
+    - Fallback: CRC32 (if xxhash not available)
+      * Speed: ~4GB/s
+      * Distribution: Good for non-cryptographic use
+      * Standard library: Available in zlib
     """
 
     def __init__(self, num_shards: int = NUM_SHARDS):
@@ -76,10 +101,53 @@ class ShardRouter:
         """
         self.num_shards = num_shards
         self.shard_key = SHARD_KEY
+        self.hash_function = HASH_FUNCTION
+        logger.info(f"ShardRouter initialized with {num_shards} shards using {self.hash_function}")
+
+    def _hash_user_id(self, user_id: int) -> int:
+        """
+        Hash user_id using xxHash64 (preferred) or CRC32 (fallback)
+        
+        Why xxHash64?
+        1. Speed: Non-cryptographic hash designed for speed
+        2. Distribution: Excellent avalanche effect (change in input → uniform change in output)
+        3. Industry Standard: Used in Redis, Cassandra, Kafka for distributed sharding
+        4. No Collisions: For 64-bit space, collision probability negligible for our use case
+        5. Deterministic: Same input always produces same hash
+        
+        Args:
+            user_id: Integer to hash
+            
+        Returns:
+            Hash value as integer
+        """
+        if xxhash:
+            # xxHash64: 64-bit non-cryptographic hash
+            # Input: user_id converted to bytes
+            # Output: 64-bit integer suitable for modulo partitioning
+            h = xxhash.xxh64(str(user_id).encode())
+            return h.intdigest()
+        else:
+            # Fallback: CRC32 from zlib
+            # CRC32 produces 32-bit hash (faster calculation, still good distribution)
+            # Mask to unsigned int
+            return zlib.crc32(str(user_id).encode()) & 0xffffffff
 
     def get_shard_id(self, user_id: int) -> int:
         """
         Calculate shard ID for a given user_id using hash-based partitioning
+        
+        Algorithm:
+        1. Hash user_id to integer (xxHash64 or CRC32)
+        2. Apply modulo to get shard index: shard_id = hash(user_id) % num_shards
+        3. Return shard ID (0 to num_shards-1)
+        
+        Benefits of Hash-Based:
+        - O(1) lookup: No metadata lookups required
+        - Uniform distribution: Hash function ensures ~33.3% per shard
+        - No hotspots: Distribution independent of user_id values
+        - Deterministic: Same user always goes to same shard
+        - Scalable: Can add shards (though requires data migration)
         
         Args:
             user_id: User ID to route
@@ -95,8 +163,11 @@ class ShardRouter:
         if user_id < 0:
             raise ShardingException(f"user_id must be positive: {user_id}")
         
-        shard_id = user_id % self.num_shards
-        logger.debug(f"Routed user_id={user_id} to shard={shard_id}")
+        # Hash the user_id and apply modulo
+        hash_value = self._hash_user_id(user_id)
+        shard_id = hash_value % self.num_shards
+        
+        logger.debug(f"Routed user_id={user_id}, hash={hash_value}, shard={shard_id}")
         return shard_id
 
     def get_shard_table_name(self, table_name: str, user_id: int) -> str:
