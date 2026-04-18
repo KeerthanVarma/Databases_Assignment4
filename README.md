@@ -92,10 +92,6 @@ Run: `python test_hash_distribution.py`
 - `Module_B/app/main.py` - FastAPI endpoints
 - `Module_B/requirements.txt` - Dependencies
 
-**Documentation**:
-- `PROFESSIONAL_REPORT.tex` - 5-page assignment report
-- `INDEX.md` - Complete documentation index
-- `HASH_FUNCTION_JUSTIFICATION.md` - Technical details
 
 **Testing**:
 - `Module_B/test_hash_distribution.py` - Verification suite
