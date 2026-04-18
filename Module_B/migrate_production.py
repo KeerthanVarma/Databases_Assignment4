@@ -2,7 +2,8 @@
 """
 Comprehensive Data Migration Script
 Migrates all production data from schema_fixed.sql into remote MySQL shards
-Handles proper data distribution across shards based on user_id
+Implements hash-based sharding: shard_id = hash(user_id) % 3
+Uses xxHash64 for deterministic, uniform distribution across shards
 """
 
 import mysql.connector
@@ -10,6 +11,14 @@ from mysql.connector import Error, pooling
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+import sys
+from pathlib import Path
+
+# Add Module_B to path
+module_b_path = Path(__file__).parent
+sys.path.insert(0, str(module_b_path))
+
+from app.sharding_manager import ShardRouter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,12 +37,15 @@ DB_USER = "Machine_minds"
 DB_PASSWORD = "password@123"
 
 class DataMigrator:
-    """Handles migration of production data into shards"""
+    """Handles migration of production data into shards using hash-based partitioning"""
     
     def __init__(self):
-        """Initialize connection pools"""
+        """Initialize connection pools and shard router"""
         self.pools = {}
         self.connections = {}
+        self.router = ShardRouter(num_shards=3)  # Initialize hash-based router
+        logger.info("[ROUTER] ShardRouter initialized with xxHash64")
+        logger.info(f"[ROUTER] Hash function: {self.router.hash_function}")
         self._initialize_pools()
     
     def _initialize_pools(self):
@@ -50,7 +62,7 @@ class DataMigrator:
                     password=DB_PASSWORD
                 )
                 self.pools[shard_id] = pool
-                logger.info(f"[SHARD {shard_id}] Pool initialized")
+                logger.info(f"[SHARD {shard_id}] Pool initialized on port {config['port']}")
             except Error as e:
                 logger.error(f"[SHARD {shard_id}] Pool initialization failed: {e}")
                 raise
@@ -59,55 +71,34 @@ class DataMigrator:
         """Get connection for shard"""
         return self.pools[shard_id].get_connection()
     
-    @staticmethod
-    def get_shard_id(user_id: int) -> int:
-        """Calculate shard ID"""
-        return user_id % 3
+    def get_shard_id(self, user_id: int) -> int:
+        """
+        Calculate shard ID using xxHash64-based routing
+        
+        Algorithm: shard_id = hash(user_id) % 3
+        Uses xxHash64 for non-cryptographic, fast hashing with excellent distribution
+        
+        Args:
+            user_id: User ID to route
+            
+        Returns:
+            Shard ID (0, 1, or 2)
+        """
+        return self.router.get_shard_id(user_id)
     
     @staticmethod
     def get_table_name(base_name: str, shard_id: int) -> str:
         """Get shard-specific table name"""
         return f"shard_{shard_id}_{base_name}"
     
-    # ========== MIGRATION METHODS ==========
-    
-    def migrate_roles(self):
-        """Migrate roles (replicate to all shards)"""
-        logger.info("\n" + "="*70)
-        logger.info("MIGRATING: Roles")
-        logger.info("="*70)
-        
-        roles_data = [
-            (1, 'Student', 'Current student eligible for placements'),
-            (2, 'Recruiter', 'Company representative posting jobs and hiring students'),
-            (3, 'CDS Team', 'Placement cell coordinators managing drives'),
-            (4, 'CDS Manager', 'Head of Career Development and Placement Services'),
-            (5, 'Alumni', 'Graduated student providing referrals, guidance, and training')
-        ]
-        
-        for shard_id in SHARDS.keys():
-            try:
-                conn = self.get_connection(shard_id)
-                cursor = conn.cursor()
-                
-                for role_id, role_name, description in roles_data:
-                    sql = f"""
-                    INSERT IGNORE INTO roles (role_id, role_name, description)
-                    VALUES (%s, %s, %s)
-                    """
-                    cursor.execute(sql, (role_id, role_name, description))
-                
-                conn.commit()
-                logger.info(f"[SHARD {shard_id}] ✓ Inserted {len(roles_data)} roles")
-                cursor.close()
-                conn.close()
-            except Error as e:
-                logger.error(f"[SHARD {shard_id}] ✗ Failed to insert roles: {e}")
-    
     def migrate_users(self):
-        """Migrate users to correct shards"""
+        """
+        Migrate users to correct shards using xxHash64 hash function
+        Distribution: shard_id = hash(user_id) % 3
+        """
         logger.info("\n" + "="*70)
-        logger.info("MIGRATING: Users (Distributed by user_id % 3)")
+        logger.info("MIGRATING: Users (Hash-based distribution - xxHash64)")
+        logger.info("Formula: shard_id = hash(user_id) % 3")
         logger.info("="*70)
         
         # Complete user data from schema_fixed.sql
@@ -183,7 +174,10 @@ class DataMigrator:
         total_inserted = 0
         shard_distribution = {0: 0, 1: 0, 2: 0}
         
+        logger.info("\nDistributing users to shards using xxHash64:")
+        
         for user_id, username, email, pwd_hash, role_id, is_verified, full_name, contact, status in users_data:
+            # Use hash-based routing instead of simple modulo
             shard_id = self.get_shard_id(user_id)
             table_name = self.get_table_name("users", shard_id)
             
@@ -208,17 +202,21 @@ class DataMigrator:
                 cursor.close()
                 conn.close()
             except Error as e:
-                logger.error(f"[SHARD {shard_id}] ✗ Failed to insert user {user_id}: {e}")
+                logger.error(f"[SHARD {shard_id}] [ERROR] Failed to insert user {user_id}: {e}")
         
-        logger.info(f"\n✓ Total users inserted: {total_inserted}")
-        logger.info(f"  Shard 0: {shard_distribution[0]} users")
-        logger.info(f"  Shard 1: {shard_distribution[1]} users")
-        logger.info(f"  Shard 2: {shard_distribution[2]} users")
+        logger.info(f"\n[OK] Total users inserted: {total_inserted}")
+        logger.info(f"[DISTRIBUTION]")
+        for shard, count in sorted(shard_distribution.items()):
+            pct = (count / total_inserted * 100) if total_inserted > 0 else 0
+            logger.info(f"  Shard {shard}: {count} users ({pct:.1f}%)")
     
     def migrate_students(self):
-        """Migrate students to same shard as their user_id"""
+        """
+        Migrate students to same shard as their user_id
+        Uses xxHash64 routing to ensure consistency with user sharding
+        """
         logger.info("\n" + "="*70)
-        logger.info("MIGRATING: Students (Same shard as user_id)")
+        logger.info("MIGRATING: Students (Same shard as user_id via hash function)")
         logger.info("="*70)
         
         students_data = [
@@ -255,8 +253,10 @@ class DataMigrator:
         ]
         
         total_inserted = 0
+        shard_distribution = {0: 0, 1: 0, 2: 0}
         
         for student_id, user_id, cpi, program, discipline, grad_year, backlogs, gender, tenth, tenth_yr, twelfth, twelfth_yr in students_data:
+            # Route to same shard as user_id using hash function
             shard_id = self.get_shard_id(user_id)
             table_name = self.get_table_name("students", shard_id)
             
@@ -275,23 +275,29 @@ class DataMigrator:
                 cursor.execute(sql, (student_id, user_id, cpi, program, discipline, grad_year,
                                     backlogs, gender, tenth, tenth_yr, twelfth, twelfth_yr, shard_id))
                 conn.commit()
+                shard_distribution[shard_id] += 1
                 total_inserted += 1
                 
                 cursor.close()
                 conn.close()
             except Error as e:
-                logger.error(f"[SHARD {shard_id}] ✗ Failed to insert student {student_id}: {e}")
+                logger.error(f"[SHARD {shard_id}] [ERROR] Failed to insert student {student_id}: {e}")
         
-        logger.info(f"✓ Total students inserted: {total_inserted}")
+        logger.info(f"[OK] Total students inserted: {total_inserted}")
+        logger.info(f"[DISTRIBUTION]")
+        for shard, count in sorted(shard_distribution.items()):
+            pct = (count / total_inserted * 100) if total_inserted > 0 else 0
+            logger.info(f"  Shard {shard}: {count} students ({pct:.1f}%)")
     
     def verify_migration(self):
-        """Verify that all data has been migrated correctly"""
+        """Verify that all data has been migrated correctly with hash-based distribution"""
         logger.info("\n" + "="*70)
-        logger.info("VERIFYING MIGRATION")
+        logger.info("VERIFYING MIGRATION (Hash-based distribution)")
         logger.info("="*70)
         
         total_users = 0
         total_students = 0
+        shard_user_distribution = {0: 0, 1: 0, 2: 0}
         
         for shard_id in SHARDS.keys():
             try:
@@ -299,12 +305,15 @@ class DataMigrator:
                 cursor = conn.cursor(dictionary=True)
                 
                 # Count users
-                cursor.execute(f"SELECT COUNT(*) as cnt FROM {self.get_table_name('users', shard_id)}")
+                table_name = self.get_table_name("users", shard_id)
+                cursor.execute(f"SELECT COUNT(*) as cnt FROM {table_name}")
                 user_count = cursor.fetchone()['cnt']
                 total_users += user_count
+                shard_user_distribution[shard_id] = user_count
                 
                 # Count students
-                cursor.execute(f"SELECT COUNT(*) as cnt FROM {self.get_table_name('students', shard_id)}")
+                table_name = self.get_table_name("students", shard_id)
+                cursor.execute(f"SELECT COUNT(*) as cnt FROM {table_name}")
                 student_count = cursor.fetchone()['cnt']
                 total_students += student_count
                 
@@ -312,45 +321,68 @@ class DataMigrator:
                 logger.info(f"  Users: {user_count}")
                 logger.info(f"  Students: {student_count}")
                 
-                # Show sample users
-                cursor.execute(f"SELECT user_id, username, email FROM {self.get_table_name('users', shard_id)} LIMIT 3")
+                # Show sample users with routing verification
+                table_name = self.get_table_name("users", shard_id)
+                cursor.execute(f"SELECT user_id, username, email FROM {table_name} LIMIT 3")
                 samples = cursor.fetchall()
                 for user in samples:
-                    logger.info(f"    - User {user['user_id']}: {user['username']} ({user['email']})")
+                    uid = user['user_id']
+                    calculated_shard = self.get_shard_id(uid)
+                    routing_ok = "[OK]" if calculated_shard == shard_id else "[ERROR]"
+                    logger.info(f"    {routing_ok} User {uid}: {user['username']} -> Shard {calculated_shard}")
                 
                 cursor.close()
                 conn.close()
             except Error as e:
-                logger.error(f"[SHARD {shard_id}] ✗ Verification failed: {e}")
+                logger.error(f"[SHARD {shard_id}] [ERROR] Verification failed: {e}")
         
+        # Distribution analysis
         logger.info(f"\n{'='*70}")
-        logger.info(f"MIGRATION SUMMARY")
+        logger.info(f"MIGRATION SUMMARY (xxHash64 Distribution)")
         logger.info(f"{'='*70}")
         logger.info(f"Total Users: {total_users}")
         logger.info(f"Total Students: {total_students}")
+        logger.info(f"\nUser Distribution:")
+        for shard, count in sorted(shard_user_distribution.items()):
+            pct = (count / total_users * 100) if total_users > 0 else 0
+            logger.info(f"  Shard {shard}: {count} users ({pct:.1f}%)")
+        
+        # Calculate variance
+        expected_per_shard = total_users / 3
+        variance = max(abs(count - expected_per_shard) for count in shard_user_distribution.values())
+        variance_pct = (variance / expected_per_shard * 100) if expected_per_shard > 0 else 0
+        
+        logger.info(f"\nDistribution Quality:")
+        logger.info(f"  Expected per shard: {expected_per_shard:.1f}")
+        logger.info(f"  Variance: {variance_pct:.1f}%")
+        
+        if variance_pct < 5:
+            logger.info(f"  Status: [OK] EXCELLENT distribution (hash function working perfectly)")
+        else:
+            logger.info(f"  Status: [ERROR] POOR distribution")
+        
         logger.info(f"{'='*70}\n")
 
 def main():
-    """Run migration"""
+    """Run migration with hash-based sharding"""
     try:
         logger.info("="*70)
-        logger.info("PRODUCTION DATA MIGRATION TO REMOTE SHARDS")
+        logger.info("PRODUCTION DATA MIGRATION TO REMOTE SHARDS (xxHash64)")
         logger.info("="*70 + "\n")
         
         migrator = DataMigrator()
         
         # Perform migration
-        migrator.migrate_roles()
         migrator.migrate_users()
         migrator.migrate_students()
         
         # Verify
         migrator.verify_migration()
         
-        logger.info("✅ Migration completed successfully!")
+        logger.info("[OK] Migration completed successfully with xxHash64 distribution!")
         
     except Exception as e:
-        logger.error(f"❌ Migration failed: {e}")
+        logger.error(f"[ERROR] Migration failed: {e}")
         raise
 
 if __name__ == "__main__":
