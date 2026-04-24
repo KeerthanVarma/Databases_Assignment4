@@ -35,7 +35,6 @@ A complete database management system powering a real-world placement and recrui
 
 | Metric | Value |
 |--------|-------|
-| **Production Code** | 3,500+ lines |
 | **API Endpoints** | 40+ |
 | **Database Tables** | 21 per shard |
 | **Test Cases** | 50+ |
