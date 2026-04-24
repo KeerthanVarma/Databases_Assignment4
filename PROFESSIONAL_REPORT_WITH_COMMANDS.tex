@@ -424,7 +424,7 @@ sys.path.insert(0, '.')
 from app.sharding_manager import ShardRouter
 router = ShardRouter(num_shards=3)
 print('Multiple User Routing:')
-for uid in [42, 100, 156, 200]:
+for uid in [42, 100, 154, 200]:
     shard = router.get_shard_id(uid)
     print(f'  User {uid} → Shard {shard}')
 "

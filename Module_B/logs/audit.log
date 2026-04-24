@@ -535,3 +535,6 @@
 2026-04-17T21:05:53.708528+00:00 actor=100 action=DELETE table=users/recruiters record=1004 path=/recruiters/1004 status=success
 2026-04-17T21:09:13.364944+00:00 actor=100 action=INSERT table=users/students record=230034 path=/members status=success
 2026-04-17T22:40:59.701883+00:00 actor=100 action=INSERT table=users/students record=230035 path=/members status=success
+2026-04-18T11:06:52.318287+00:00 actor=100 action=INSERT table=users/students record=230036 path=/members status=success
+2026-04-18T11:11:00.220960+00:00 actor=100 action=INSERT table=users/students record=230037 path=/members status=success
+2026-04-18T11:17:02.394938+00:00 actor=100 action=INSERT table=users/students record=230038 path=/members status=success

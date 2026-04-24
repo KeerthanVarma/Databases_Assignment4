@@ -200,6 +200,8 @@ def get_session_user(session_token: str):
                             "role_id": user.get("role_id"),
                             "expires_at": session["expires_at"]
                         }
+            except HTTPException:
+                raise
             except Exception:
                 continue
         

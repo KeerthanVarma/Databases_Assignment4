@@ -129,7 +129,7 @@ def demonstrate_query_routing(user=Depends(current_user_dependency)):
         by_shard[shard_id].append(route["user_id"])
     
     return {
-        "strategy": "hash-based: shard_id = user_id % 3",
+        "strategy": "hash-based: shard_id = hash(user_id) % 3",
         "routing_map": routing_map,
         "distribution_by_shard": by_shard,
         "explanation": "Each user_id is mapped to exactly one shard deterministically"

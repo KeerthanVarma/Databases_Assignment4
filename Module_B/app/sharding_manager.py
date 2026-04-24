@@ -108,47 +108,18 @@ class ShardRouter:
         """
         Hash user_id using xxHash64 (preferred) or CRC32 (fallback)
         
-        Why xxHash64?
-        1. Speed: Non-cryptographic hash designed for speed
-        2. Distribution: Excellent avalanche effect (change in input → uniform change in output)
-        3. Industry Standard: Used in Redis, Cassandra, Kafka for distributed sharding
-        4. No Collisions: For 64-bit space, collision probability negligible for our use case
-        5. Deterministic: Same input always produces same hash
-        
         Args:
             user_id: Integer to hash
             
         Returns:
             Hash value as integer
         """
-        if xxhash:
-            # xxHash64: 64-bit non-cryptographic hash
-            # Input: user_id converted to bytes
-            # Output: 64-bit integer suitable for modulo partitioning
-            h = xxhash.xxh64(str(user_id).encode())
-            return h.intdigest()
-        else:
-            # Fallback: CRC32 from zlib
-            # CRC32 produces 32-bit hash (faster calculation, still good distribution)
-            # Mask to unsigned int
-            return zlib.crc32(str(user_id).encode()) & 0xffffffff
-
+        h = xxhash.xxh64(str(user_id).encode())
+        return h.intdigest()
+        
     def get_shard_id(self, user_id: int) -> int:
         """
         Calculate shard ID for a given user_id using hash-based partitioning
-        
-        Algorithm:
-        1. Hash user_id to integer (xxHash64 or CRC32)
-        2. Apply modulo to get shard index: shard_id = hash(user_id) % num_shards
-        3. Return shard ID (0 to num_shards-1)
-        
-        Benefits of Hash-Based:
-        - O(1) lookup: No metadata lookups required
-        - Uniform distribution: Hash function ensures ~33.3% per shard
-        - No hotspots: Distribution independent of user_id values
-        - Deterministic: Same user always goes to same shard
-        - Scalable: Can add shards (though requires data migration)
-        
         Args:
             user_id: User ID to route
             
@@ -158,12 +129,6 @@ class ShardRouter:
         Raises:
             ShardingException: If user_id is invalid
         """
-        if user_id is None or not isinstance(user_id, int):
-            raise ShardingException(f"Invalid user_id: {user_id}")
-        if user_id < 0:
-            raise ShardingException(f"user_id must be positive: {user_id}")
-        
-        # Hash the user_id and apply modulo
         hash_value = self._hash_user_id(user_id)
         shard_id = hash_value % self.num_shards
         
