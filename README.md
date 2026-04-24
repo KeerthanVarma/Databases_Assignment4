@@ -7,158 +7,72 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?style=flat-square&logo=fastapi)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-**A comprehensive, production-ready database system featuring ACID-compliant transactions, horizontal sharding, and real-world application deployment**
+**Enterprise-Grade Database System with ACID Compliance, Horizontal Sharding, and Production-Ready APIs**
 
-[Features](#features) • [Architecture](#architecture) • [Quick Start](#quick-start) • [Modules](#modules) • [Performance](#performance)
+[Quick Start](#quick-start) | [Features](#features) | [Architecture](#architecture) | [Modules](#modules) | [Documentation](#documentation)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Project Overview
 
-This project implements a **complete, enterprise-grade database management system** with two distinct but complementary modules:
+A comprehensive, enterprise-grade database management system demonstrating advanced database engineering concepts through a real-world placement management platform (CareerTrack).
 
-- **Module A**: Transaction-enabled DBMS with B+ Tree implementation featuring full ACID compliance, crash recovery, and concurrency control
-- **Module B**: Distributed database platform with horizontal sharding, Role-Based Access Control (RBAC), and production-ready REST APIs
+### What This Project Does
 
-The system powers a real-world **CareerTrack** platform for managing student placements, job postings, company recruitment, and alumni engagement.
+This system implements a complete DBMS with:
+- Full ACID-compliant transaction engine with B+ Tree storage
+- Distributed architecture with horizontal sharding across 3 MySQL nodes
+- Role-based access control with 6 privilege levels
+- 40+ production-ready REST APIs
+- Comprehensive audit logging and monitoring
 
----
+### Key Statistics
 
-## ✨ Features
-
-### Module A: Transaction Engine & B+ Tree Storage
-- ✅ **Full ACID Compliance**
-  - Atomicity: All-or-nothing transaction execution with automatic rollback
-  - Consistency: Constraint enforcement and referential integrity preservation
-  - Isolation: READ_COMMITTED isolation level with lock-based concurrency control
-  - Durability: Write-Ahead Logging (WAL) with force-write persistence
-
-- ✅ **Advanced Concurrency Control**
-  - Lock-based concurrency with deadlock detection
-  - Multi-version concurrency control for read-your-own-writes
-  - Transaction isolation with ACID guarantees
-
-- ✅ **Crash Recovery**
-  - ARIES-inspired 3-phase recovery algorithm
-  - Automatic rollback of incomplete transactions
-  - Log-based recovery with before/after images
-
-- ✅ **B+ Tree Storage Engine**
-  - Self-balancing multi-level index structure
-  - O(log n) search, insert, and delete operations
-  - Efficient range queries and sequential scans
-
-- ✅ **Performance Monitoring**
-  - Real-time transaction metrics collection
-  - Latency profiling and analysis
-  - CSV-based reporting and visualization
-
-### Module B: Distributed Database & REST API
-- ✅ **Horizontal Sharding**
-  - Hash-based partitioning with `user_id` as shard key
-  - 3-node distributed architecture
-  - Automatic query routing to correct shard
-  - ±1.7% data distribution variance
-
-- ✅ **Role-Based Access Control (RBAC)**
-  - 6 role levels: Admin, CDS Manager, CDS Team, Recruiter, Student, Alumni
-  - Hierarchical permission model
-  - Audit logging for all write operations
-
-- ✅ **Production-Ready API**
-  - 40+ REST endpoints with FastAPI
-  - JWT authentication with session management
-  - Comprehensive input validation and error handling
-  - Auto-generated API documentation (Swagger/OpenAPI)
-
-- ✅ **SQL Query Optimization**
-  - Strategic indexing on high-cardinality columns and foreign keys
-  - Benchmark suite with EXPLAIN plan analysis
-  - Performance improvement validation
+| Metric | Count |
+|--------|-------|
+| Total Code Lines | 3,500+ |
+| API Endpoints | 40+ |
+| Database Tables | 21 per shard |
+| Users Supported | 61+ |
+| Test Cases | 50+ |
+| Modules | 2 |
+| Test Pass Rate | 100% |
 
 ---
 
-## 🏗️ Architecture
-
-### System Overview
-```
-┌─────────────────────────────────────────────────────┐
-│           Web Browser / API Clients                  │
-└─────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────┐
-│         FastAPI Application (Port 8000)              │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Authentication | RBAC | API Endpoints       │  │
-│  └──────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Sharding Manager | Query Router             │  │
-│  └──────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Transaction Manager | Lock Manager          │  │
-│  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
-         │              │              │
-         ▼              ▼              ▼
-    ┌─────────┐  ┌─────────┐  ┌─────────┐
-    │ Shard 0 │  │ Shard 1 │  │ Shard 2 │
-    │(MySQL)  │  │(MySQL)  │  │(MySQL)  │
-    └─────────┘  └─────────┘  └─────────┘
-```
-
-### Module A: Transaction Engine
-```
-Database Layer (B+ Tree Storage)
-         ↕
-Transaction Manager (Lifecycle)
-         ↕
-├─ Write-Ahead Logging (Durability)
-├─ Lock Manager (Concurrency)
-├─ Recovery Engine (Crash Safety)
-└─ Transactional Storage (Buffering)
-```
-
-### Module B: Distributed Database
-```
-REST API Endpoints
-         ↕
-Sharding Manager (Hash-based routing)
-         ↕
-Connection Pools (Per-shard)
-         ↕
-MySQL Shards (user_id partitioning)
-```
-
----
-
-## 🚀 Quick Start
+## Quick Start Guide
 
 ### Prerequisites
-- Python 3.8+
-- MySQL 8.0+
+
+Before starting, ensure you have:
+- Python 3.8 or higher
+- MySQL 8.0 or higher
 - pip package manager
+- 5-10 minutes to set up
 
-### Installation
+### Installation Steps
 
-**1. Clone and Navigate**
+**1. Install Dependencies**
 ```bash
 cd Module_B
 pip install -r requirements.txt
 ```
 
-**2. Configure Database Environment**
-```bash
-# Windows PowerShell
+**2. Configure Environment Variables**
+
+**Windows PowerShell:**
+```powershell
 $env:MODULE_B_DB_HOST="localhost"
 $env:MODULE_B_DB_PORT="3306"
 $env:MODULE_B_DB_USER="root"
 $env:MODULE_B_DB_PASSWORD=""
 $env:MODULE_B_DB_NAME="module_b"
+```
 
-# macOS/Linux
+**macOS/Linux:**
+```bash
 export MODULE_B_DB_HOST="localhost"
 export MODULE_B_DB_PORT="3306"
 export MODULE_B_DB_USER="root"
@@ -171,73 +85,521 @@ export MODULE_B_DB_NAME="module_b"
 python start_backend.py
 ```
 
-The API will be available at `http://localhost:8000`
+**4. Access the Application**
 
-**4. Access Services**
-- **Web UI**: http://localhost:8000/
-- **API Documentation**: http://localhost:8000/docs
-- **Redoc**: http://localhost:8000/redoc
+Once running, visit:
+- Web Interface: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+- Alternative API Docs: http://localhost:8000/redoc
 
-### Test Connectivity
+### Test the Installation
+
 ```bash
-# Verify shards are connected
+# Check shard connectivity
 python check_shards.py
 
-# Run comprehensive test suite
+# Run all tests
 python test_hash_distribution.py
 
-# Verify data integrity across shards
+# Verify data integrity
 python verify_sharding.py
 ```
 
 ---
 
-## 📦 Modules
+## Features
 
-### Module A: ACID Transaction Engine
+### Module A: ACID Transaction Engine and B+ Tree Storage
+
+**Transaction Management**
+- Complete ACID compliance (Atomicity, Consistency, Isolation, Durability)
+- Automatic rollback on transaction failure
+- Multi-version concurrency control
+- Deadlock detection and prevention
+- Transaction logging and recovery
+
+**Durability and Recovery**
+- Write-Ahead Logging (WAL) system
+- ARIES-inspired 3-phase recovery algorithm
+- Crash recovery with automatic transaction rollback
+- Before/after image logging for UNDO/REDO operations
+
+**Storage Engine**
+- B+ Tree data structure implementation
+- O(log n) time complexity for search, insert, delete
+- Efficient range query support
+- Self-balancing tree structure
+
+**Monitoring and Analysis**
+- Real-time performance metrics collection
+- Transaction latency tracking
+- CSV-based performance reports
+- Visualization and analysis tools
+
+### Module B: Distributed Database Platform
+
+**Horizontal Sharding**
+- Hash-based data partitioning (user_id as shard key)
+- 3-node distributed architecture
+- Automatic query routing to correct shard
+- Excellent distribution uniformity (±1.7% variance)
+
+**Security and Access Control**
+- 6-tier role-based access control system
+- JWT token-based authentication
+- Session management and validation
+- Comprehensive audit logging for all operations
+- Role hierarchy: Admin > CDS Manager > CDS Team > Recruiter > Student > Alumni
+
+**API and Web Interface**
+- 40+ production-ready REST endpoints
+- Complete CRUD operations for all entities
+- Input validation and error handling
+- Auto-generated OpenAPI/Swagger documentation
+- Web UI for portfolio and job management
+
+**Query Optimization**
+- Strategic index placement on frequently queried columns
+- Foreign key optimization
+- Query performance benchmarking
+- EXPLAIN plan analysis tools
+
+---
+
+## Architecture Overview
+
+### System Components
+
+```
+┌────────────────────────────────────────────────────┐
+│            CLIENT APPLICATIONS                     │
+│         (Web Browser, API Clients)                 │
+└────────────────────────────────────────────────────┘
+                      |
+                      v
+┌────────────────────────────────────────────────────┐
+│         FastAPI Application Server                 │
+│              (Port 8000)                           │
+├────────────────────────────────────────────────────┤
+│ - Authentication & Session Management             │
+│ - Role-Based Access Control                       │
+│ - API Endpoints (40+)                             │
+├────────────────────────────────────────────────────┤
+│ - Sharding Manager (Hash Routing)                 │
+│ - Query Router                                     │
+├────────────────────────────────────────────────────┤
+│ - Transaction Manager                             │
+│ - Lock Manager                                     │
+│ - Concurrency Control                             │
+└────────────────────────────────────────────────────┘
+        |              |              |
+        v              v              v
+    ┌────────┐  ┌────────┐  ┌────────┐
+    │ Shard 0│  │ Shard 1│  │ Shard 2│
+    │ MySQL  │  │ MySQL  │  │ MySQL  │
+    │ Port   │  │ Port   │  │ Port   │
+    │ 3307   │  │ 3308   │  │ 3309   │
+    └────────┘  └────────┘  └────────┘
+```
+
+### Data Flow
+
+1. Client sends request to API
+2. Authentication validates user credentials
+3. RBAC checks user permissions
+4. Sharding Manager determines target shard using hash(user_id)
+5. Query routes to correct shard database
+6. Transaction Manager handles ACID compliance
+7. Response returns to client
+
+---
+
+## Modules in Detail
+
+### Module A: Transaction Engine
 
 **Location**: `Module_A/`
 
-**Core Components**:
-- `database/bplustree.py` - B+ Tree storage engine with O(log n) operations
-- `transaction/transaction_manager.py` - Transaction lifecycle management
-- `transaction/wal.py` - Write-Ahead Logging system (durability)
-- `transaction/lock_manager.py` - Concurrency control with deadlock detection
-- `transaction/recovery.py` - Crash recovery with ARIES algorithm
-- `performance_monitor.py` - Real-time metrics and reporting
+**Directory Structure**:
+```
+Module_A/
+├── database/
+│   ├── bplustree.py          (B+ Tree storage engine)
+│   ├── table.py              (Table abstraction layer)
+│   ├── db_manager.py         (Database manager)
+│   └── __init__.py
+├── transaction/
+│   ├── transaction_manager.py (Lifecycle management)
+│   ├── wal.py                (Write-Ahead Logging)
+│   ├── lock_manager.py       (Concurrency control)
+│   ├── recovery.py           (Crash recovery)
+│   ├── coordinator.py        (Transaction coordination)
+│   ├── transactional_storage.py (Buffering)
+│   └── __init__.py
+├── performance_monitor.py    (Metrics collection)
+├── run_demo.py               (Demo runner)
+├── report.ipynb              (Analysis notebook)
+└── requirements.txt
+```
 
-**Key Features**:
-- 100% ACID compliant transactions
-- Automatic crash recovery
-- Concurrent transaction execution
-- Real-time performance monitoring
-- Comprehensive test coverage
+**Running Module A**:
 
-**Run Demo**:
+View the transaction engine in action:
 ```bash
 cd Module_A
 python run_demo.py
 python demo_bplustree_acid_complete.py
 ```
 
-**View Reports**:
+View analysis and performance reports:
 ```bash
 jupyter notebook report.ipynb
 ```
 
----
+Run tests:
+```bash
+pytest test_comprehensive_failure_scenarios.py
+pytest test_integration_acid.py
+```
 
-### Module B: Distributed Database & REST API
+### Module B: Distributed Database API
 
 **Location**: `Module_B/`
 
+**Directory Structure**:
+```
+Module_B/
+├── app/
+│   ├── main.py               (FastAPI application)
+│   ├── auth.py               (Authentication & JWT)
+│   ├── db.py                 (Database connections)
+│   ├── sharding_manager.py   (Hash routing)
+│   ├── schemas.py            (Data models)
+│   ├── sharded_db.py         (Sharded operations)
+│   └── __init__.py
+├── tests/
+│   ├── integration_test_suite.py
+│   ├── race_condition_tests.py
+│   └── __init__.py
+├── scripts/
+│   ├── benchmark_indexing.py (Performance testing)
+│   └── smoke_rbac.py
+├── sql/
+│   ├── init_schema.sql       (Schema definition)
+│   ├── indexes.sql           (Index creation)
+│   └── benchmark_queries.sql
+├── ui/                       (Web interface files)
+├── start_backend.py          (Server startup)
+├── check_shards.py           (Connectivity check)
+├── verify_sharding.py        (Data verification)
+└── requirements.txt
+```
+
+**Test Credentials**:
+
+| User Type | Username | Password |
+|-----------|----------|----------|
+| Admin | admin | admin123 |
+| Student | student1-30 | hash1-30 |
+| Alumni | alumni1-10 | hash31-40 |
+| Recruiter | recruiter1-15 | hash41-55 |
+| CDS Team | cds1-5 | hash56-60 |
+| CDS Manager | cdsmanager1 | hash61 |
+
+**Running Module B**:
+
+Start the backend server:
+```bash
+cd Module_B
+python start_backend.py
+```
+
+Run integration tests:
+```bash
+python tests/integration_test_suite.py
+```
+
+Test sharding:
+```bash
+python verify_sharding.py
+```
+
+Benchmark performance:
+```bash
+python scripts/benchmark_indexing.py
+```
+
+---
+
+## API Endpoints Reference
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| POST | /login | User login | Public |
+| GET | /isAuth | Verify session | Authenticated |
+| GET | /logout | User logout | Authenticated |
+
+### Portfolio Management
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | /portfolio/{member_id} | View user profile | Authenticated |
+| PATCH | /portfolio/{member_id} | Update profile | Owner |
+
+### Company Management
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | /companies | List all companies | Authenticated |
+| POST | /companies | Create company | Recruiter+ |
+| PATCH | /companies/{id} | Update company | Recruiter+ |
+| DELETE | /companies/{id} | Delete company | Recruiter+ |
+
+### Job Management
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | /jobs | List active jobs | Authenticated |
+| POST | /jobs | Create job posting | Recruiter+ |
+| PATCH | /jobs/{id} | Update job | Recruiter+ |
+| DELETE | /jobs/{id} | Remove job | Recruiter+ |
+
+### Application Workflow
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| POST | /applications | Submit application | Student |
+| GET | /applications | View applications | Authenticated |
+| PATCH | /applications/{id} | Update status | Recruiter+ |
+
+### Administrative
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | /audit-logs | View all audit trails | Admin only |
+| GET | /analytics | Placement analytics | CDS Manager+ |
+
+---
+
+## Database Schema
+
+### Core Tables
+
+**User Management**:
+- `users` - User accounts and authentication
+- `roles` - Role definitions
+- `sessions` - Active user sessions
+
+**Placement System**:
+- `students` - Student profiles
+- `companies` - Employer companies
+- `jobs` - Job postings
+- `job_applications` - Student applications
+- `interviews` - Interview records
+
+**Additional Features**:
+- `audit_logs` - All operations audit trail
+- `skills` - Student skills
+- `certifications` - Student certifications
+- `referrals` - Alumni referrals
+- `training_sessions` - Training programs
+- `placement_drives` - Placement drives
+
+### Schema Distribution
+
+- **Tables per Shard**: 21 tables
+- **Total Records Migrated**: 61 users
+- **Data Loss**: 0 (100% integrity maintained)
+- **Partition Key**: user_id (hash-based)
+
+---
+
+## Performance Characteristics
+
+### Sharding Performance
+
+| Metric | Value | Assessment |
+|--------|-------|------------|
+| Routing Overhead | 400 nanoseconds | Negligible |
+| Latency Impact | 0.001% | Unmeasurable |
+| Distribution Uniformity | ±1.7% variance | Excellent |
+| Scalability Support | Up to N shards | Proven |
+| Test Success Rate | 100% (7/7 passing) | Verified |
+
+### B+ Tree Operations
+
+| Operation | Time Complexity | Performance |
+|-----------|-----------------|-------------|
+| Search | O(log n) | Microseconds |
+| Insert | O(log n) | Microseconds |
+| Delete | O(log n) | Microseconds |
+| Range Query | O(log n + k) | Fast traversal |
+
+### Running Benchmarks
+
+```bash
+# Generate performance analysis with EXPLAIN plans
+python Module_B/scripts/benchmark_indexing.py
+
+# Output includes:
+# - API response times (before/after indexing)
+# - SQL query performance metrics
+# - EXPLAIN QUERY PLAN snapshots
+# - Index effectiveness analysis
+```
+
+---
+
+## Testing Suite
+
+### Test Coverage
+
+The project includes comprehensive testing:
+
+**Module A Tests** (Transaction Engine):
+- ACID compliance verification
+- Crash recovery validation
+- Concurrency control testing
+- B+ Tree operations verification
+- Performance benchmarking
+
+**Module B Tests** (Distributed Database):
+- Sharding correctness verification
+- Hash distribution uniformity
+- Query routing accuracy
+- RBAC enforcement
+- Race condition detection
+- Integration workflow testing
+
+### Running Tests
+
+**Module A**:
+```bash
+cd Module_A
+pytest test_comprehensive_failure_scenarios.py -v
+pytest test_integration_acid.py -v
+```
+
+**Module B**:
+```bash
+cd Module_B
+python tests/integration_test_suite.py
+python tests/race_condition_tests.py
+```
+
+**Verify Sharding**:
+```bash
+python verify_sharding.py
+```
+
+---
+
+## Technology Stack
+
+### Backend
+- **Framework**: FastAPI (modern async web framework)
+- **Language**: Python 3.8+
+- **Server**: Uvicorn ASGI server
+
+### Databases
+- **Primary**: MySQL 8.0+
+- **Storage Engine**: Custom B+ Tree implementation
+- **Connection Pooling**: MySQL connection pools
+
+### Concurrency
+- **Model**: Thread-based concurrency
+- **Lock Management**: Reader-writer locks, deadlock detection
+- **Synchronization**: Threading primitives
+
+### Logging & Monitoring
+- **Transaction Logs**: JSON-based Write-Ahead Logging
+- **Audit Trail**: Comprehensive operation logging
+- **Metrics**: Real-time performance collection
+- **Reporting**: CSV export and analysis
+
+### API & Documentation
+- **Protocol**: REST with HTTP/HTTPS
+- **Documentation**: OpenAPI 3.0 (Swagger/Redoc)
+- **Validation**: Pydantic models
+
+---
+
+## Documentation
+
+Additional detailed documentation available:
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - In-depth system architecture and design decisions
+- **[IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md)** - Code location guide and implementation details
+- **[Module_A/README.md](Module_A/README.md)** - Transaction engine technical details
+- **[Module_B/README.md](Module_B/README.md)** - Distributed database platform details
+
+---
+
+## Key Features Summary
+
+### Production-Grade Quality
+
+- Full ACID compliance with proven recovery mechanisms
+- Enterprise-level RBAC with 6 privilege tiers
+- Comprehensive audit logging for compliance
+- 100% test pass rate (50+ test cases)
+
+### Scalability
+
+- Horizontal sharding across 3+ nodes
+- Connection pooling for resource efficiency
+- Hash-based automatic routing
+- Linear scalability demonstration
+
+### Performance
+
+- Sub-millisecond query routing
+- B+ Tree O(log n) operations
+- Strategic indexing for optimization
+- Comprehensive benchmark suite
+
+### Security
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- Session validation on every request
+- Complete audit trail of all operations
+
+---
+
+## Development and Contribution
+
+For development setup and guidelines, refer to [IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md).
+
+---
+
+## License
+
+This project is implemented as part of a Database Management Systems course assignment.
+
+---
+
+<div align="center">
+
+Database Engineering Excellence Demonstrated
+
+Questions? Review the documentation or examine the comprehensive test suite.
+
+</div>
+
+### Module B: Distributed Database and REST API
+
+**Location**: Module_B/
+
 **Core Components**:
-- `app/sharding_manager.py` - Hash-based shard routing
-- `app/main.py` - FastAPI application and endpoints
-- `app/auth.py` - JWT authentication and session management
-- `app/db.py` - Database connection management
-- `app/schemas.py` - Data models and validation
-- `tests/integration_test_suite.py` - Comprehensive testing
+- app/sharding_manager.py - Hash-based shard routing
+- app/main.py - FastAPI application and endpoints
+- app/auth.py - JWT authentication and session management
+- app/db.py - Database connection management
+- app/schemas.py - Data models and validation
+- tests/integration_test_suite.py - Comprehensive testing
 
 **Key Features**:
 - 3-node distributed sharding (user_id partitioning)
@@ -246,210 +608,254 @@ jupyter notebook report.ipynb
 - Automatic audit logging
 - Query performance optimization
 
-**Seed Credentials**:
+**Test Credentials**:
 ```
-CDS Manager (Admin): admin / admin123
-Student: student1 / hash1 (students 1-30)
-Alumni: alumni1 / hash31 (alumni 1-10)
-Recruiter: recruiter1 / hash41 (recruiters 1-15)
-CDS Team: cds1 / hash56 (cds 1-5)
+CDS Manager (Admin):        admin / admin123
+Student Accounts:           student1-30 / hash1-30
+Alumni Accounts:            alumni1-10 / hash31-40
+Recruiter Accounts:         recruiter1-15 / hash41-55
+CDS Team Accounts:          cds1-5 / hash56-60
+CDS Manager Account:        cdsmanager1 / hash61
 ```
 
 **API Endpoints** (40+):
-```
+
 Authentication:
-  POST /login - User login
-  GET /isAuth - Verify session
-  GET /logout - User logout
+- POST /login - User login
+- GET /isAuth - Verify session
+- GET /logout - User logout
 
 Portfolio Management:
-  GET /portfolio/{member_id} - View profile
-  PATCH /portfolio/{member_id} - Update profile
+- GET /portfolio/{member_id} - View profile
+- PATCH /portfolio/{member_id} - Update profile
 
 Company Management:
-  GET /companies - List all companies
-  POST /companies - Create company (Recruiter)
-  PATCH /companies/{id} - Update company
-  DELETE /companies/{id} - Delete company
+- GET /companies - List all companies
+- POST /companies - Create company (Recruiter)
+- PATCH /companies/{id} - Update company
+- DELETE /companies/{id} - Delete company
 
 Job Management:
-  GET /jobs - List active jobs
-  POST /jobs - Create job posting
-  PATCH /jobs/{id} - Update job
-  DELETE /jobs/{id} - Remove job
+- GET /jobs - List active jobs
+- POST /jobs - Create job posting
+- PATCH /jobs/{id} - Update job
+- DELETE /jobs/{id} - Remove job
 
 Application Workflow:
-  POST /applications - Submit application
-  GET /applications - View applications
-  PATCH /applications/{id} - Update application status
+- POST /applications - Submit application
+- GET /applications - View applications
+- PATCH /applications/{id} - Update application status
 
-Audit & Analytics:
-  GET /audit-logs - View audit trail (Admin only)
-  GET /analytics - Placement analytics (CDS Manager)
-```
+Audit and Analytics:
+- GET /audit-logs - View all audit trails (Admin only)
+- GET /analytics - Placement analytics (CDS Manager+)
 
 ---
 
-## ⚡ Performance
+## Performance Characteristics
 
 ### Sharding Performance
-| Metric | Value | Status |
-|--------|-------|--------|
-| Routing Overhead | 400ns | ✅ Negligible |
-| DB Latency Impact | 0.001% | ✅ Unmeasurable |
-| Data Distribution Variance | ±1.7% | ✅ Excellent |
-| Scalability | 3→N shards | ✅ Enabled |
-| Test Coverage | 7/7 passing | ✅ 100% |
 
-### B+ Tree Performance
-| Operation | Complexity | Speed |
-|-----------|-----------|-------|
+| Metric | Value | Assessment |
+|--------|-------|------------|
+| Routing Overhead | 400 nanoseconds | Negligible |
+| Latency Impact | 0.001% | Unmeasurable |
+| Distribution Uniformity | ±1.7% variance | Excellent |
+| Scalability Support | Up to N shards | Proven |
+| Test Success Rate | 100% (7/7 passing) | Verified |
+
+### B+ Tree Operations
+
+| Operation | Time Complexity | Performance |
+|-----------|-----------------|-------------|
 | Search | O(log n) | Microseconds |
 | Insert | O(log n) | Microseconds |
 | Delete | O(log n) | Microseconds |
-| Range Query | O(log n + k) | Fast |
+| Range Query | O(log n + k) | Fast traversal |
 
-### Benchmarks
+### Running Benchmarks
 
-**Index Optimization Results**:
 ```bash
+# Generate performance analysis with EXPLAIN plans
 python Module_B/scripts/benchmark_indexing.py
+
+# Output includes:
+# - API response times (before/after indexing)
+# - SQL query performance metrics
+# - EXPLAIN QUERY PLAN snapshots
+# - Index effectiveness analysis
 ```
-Generates detailed EXPLAIN PLAN analysis and performance metrics.
 
 ---
 
-## 🔍 Database Schema
+## Database Schema
 
-The system manages 17+ tables across distributed shards:
+### Core Tables
 
-**Core Tables**:
-- `users` - User accounts and authentication
-- `students` - Student profiles and metadata
-- `companies` - Recruiter companies
-- `jobs` - Job postings
-- `job_applications` - Student applications
-- `interviews` - Interview records
-- `audit_logs` - Action audit trail
+**User Management**:
+- users - User accounts and authentication
+- roles - Role definitions
+- sessions - Active user sessions
 
-**Supporting Tables**:
-- `roles`, `sessions`, `groups`, `user_groups`
-- `skills`, `certifications`, `referrals`
-- `training_sessions`, `placement_drives`
-- `question_bank`, `notifications`
+**Placement System**:
+- students - Student profiles
+- companies - Employer companies
+- jobs - Job postings
+- job_applications - Student applications
+- interviews - Interview records
 
-**Total Tables per Shard**: 21
-**Total Users Migrated**: 61 (zero data loss)
+**Additional Features**:
+- audit_logs - All operations audit trail
+- skills - Student skills
+- certifications - Student certifications
+- referrals - Alumni referrals
+- training_sessions - Training programs
+- placement_drives - Placement drives
+
+### Schema Distribution
+
+- Tables per Shard: 21 tables
+- Total Records Migrated: 61 users
+- Data Loss: 0 (100% integrity maintained)
+- Partition Key: user_id (hash-based)
 
 ---
 
-## 🧪 Testing
+## Testing Suite
 
-### Comprehensive Test Suite
+### Test Coverage
+
+The project includes comprehensive testing:
+
+**Module A Tests** (Transaction Engine):
+- ACID compliance verification
+- Crash recovery validation
+- Concurrency control testing
+- B+ Tree operations verification
+- Performance benchmarking
+
+**Module B Tests** (Distributed Database):
+- Sharding correctness verification
+- Hash distribution uniformity
+- Query routing accuracy
+- RBAC enforcement
+- Race condition detection
+- Integration workflow testing
+
+### Running Tests
+
+**Module A**:
 ```bash
-# Module A Tests
 cd Module_A
-pytest test_comprehensive_failure_scenarios.py
-pytest test_integration_acid.py
+pytest test_comprehensive_failure_scenarios.py -v
+pytest test_integration_acid.py -v
+```
 
-# Module B Tests
-cd ../Module_B
+**Module B**:
+```bash
+cd Module_B
 python tests/integration_test_suite.py
 python tests/race_condition_tests.py
-python tests/failure_injection_README.md
 ```
 
-**Test Categories**:
-- Unit tests for each component
-- Integration tests for workflows
-- Failure injection tests
-- Race condition detection
-- Sharding correctness verification
+**Verify Sharding**:
+```bash
+python verify_sharding.py
+```
 
 ---
 
-## 📊 Documentation
+## Technology Stack
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Detailed system architecture
-- **[IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md)** - Code location guide
-- **[Module_A/README.md](Module_A/README.md)** - Transaction engine details
-- **[Module_B/README.md](Module_B/README.md)** - Distributed database details
+### Backend
+- Framework: FastAPI (modern async web framework)
+- Language: Python 3.8+
+- Server: Uvicorn ASGI server
 
----
+### Databases
+- Primary: MySQL 8.0+
+- Storage Engine: Custom B+ Tree implementation
+- Connection Pooling: MySQL connection pools
 
-## 🛠️ Technology Stack
+### Concurrency
+- Model: Thread-based concurrency
+- Lock Management: Reader-writer locks, deadlock detection
+- Synchronization: Threading primitives
 
-**Backend Framework**: FastAPI, Python 3.8+
-**Databases**: MySQL 8.0+, B+ Tree Storage
-**Concurrency**: Threading, Lock Management
-**Logging**: JSON-based WAL, Audit Logs
-**API**: REST with OpenAPI/Swagger
-**Testing**: pytest, Integration tests
-**Monitoring**: Real-time metrics collection
+### Logging & Monitoring
+- Transaction Logs: JSON-based Write-Ahead Logging
+- Audit Trail: Comprehensive operation logging
+- Metrics: Real-time performance collection
+- Reporting: CSV export and analysis
 
----
-
-## 📈 Project Statistics
-
-- **Total Code**: 3,500+ lines of production code
-- **Test Coverage**: 50+ test cases
-- **API Endpoints**: 40+
-- **Database Tables**: 21 per shard
-- **Users Managed**: 61+
-- **Performance**: Sub-millisecond routing
-- **Reliability**: 100% test pass rate
+### API & Documentation
+- Protocol: REST with HTTP/HTTPS
+- Documentation: OpenAPI 3.0 (Swagger/Redoc)
+- Validation: Pydantic models
 
 ---
 
-## 🤝 Key Achievements
+## Documentation
 
-✅ **Full ACID Compliance** - Production-grade transaction engine
-✅ **Horizontal Scalability** - Distributed sharding with 3-node architecture
-✅ **High Availability** - Automatic crash recovery and failover support
-✅ **Enterprise Security** - 6-level RBAC with comprehensive audit logging
-✅ **Production Ready** - REST API with 40+ endpoints and full documentation
-✅ **Performance Optimized** - Strategic indexing and query optimization
-✅ **Well Tested** - 50+ tests with 100% pass rate
-✅ **Real-World System** - Powers complete CareerTrack placement platform
+Additional detailed documentation available:
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - In-depth system architecture and design decisions
+- [IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md) - Code location guide and implementation details
+- [Module_A/README.md](Module_A/README.md) - Transaction engine technical details
+- [Module_B/README.md](Module_B/README.md) - Distributed database platform details
 
 ---
 
-## 📝 License
+## Key Features Summary
 
-This project is part of a Database Management Systems course assignment.
+### Production-Grade Quality
+
+- Full ACID compliance with proven recovery mechanisms
+- Enterprise-level RBAC with 6 privilege tiers
+- Comprehensive audit logging for compliance
+- 100% test pass rate (50+ test cases)
+
+### Scalability
+
+- Horizontal sharding across 3+ nodes
+- Connection pooling for resource efficiency
+- Hash-based automatic routing
+- Linear scalability demonstration
+
+### Performance
+
+- Sub-millisecond query routing
+- B+ Tree O(log n) operations
+- Strategic indexing for optimization
+- Comprehensive benchmark suite
+
+### Security
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- Session validation on every request
+- Complete audit trail of all operations
 
 ---
 
-## 👨‍💻 Development
+## Development and Contribution
 
-For development setup and contribution guidelines, see [IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md).
+For development setup and guidelines, refer to [IMPLEMENTATION_REFERENCE.md](IMPLEMENTATION_REFERENCE.md).
+
+---
+
+## License
+
+This project is implemented as part of a Database Management Systems course assignment.
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for Database Engineering Excellence**
+Database Engineering Excellence Demonstrated
 
-For questions or issues, refer to the documentation or examine the comprehensive test suite.
+Questions? Review the documentation or examine the comprehensive test suite.
 
 </div>
 
----
-
-## Architecture
-
-```
-3 Shards (Ports 3307-3309)
-├─ Shard 0: ~20 users, 21 tables
-├─ Shard 1: ~21 users, 21 tables
-└─ Shard 2: ~20 users, 21 tables
-
-FastAPI Router (Port 8000)
-├─ Lookup → Correct shard
-├─ Insert → Correct shard
-├─ Range → All shards + merge
-└─ Update/Delete → Correct shard
-```
-
----
 
